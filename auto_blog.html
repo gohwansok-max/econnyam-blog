@@ -1,0 +1,1346 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>경제 냠냠 블로그 스튜디오</title>
+<style>
+:root {
+  --bg:       #0F0B07;
+  --surf1:    #1A140D;
+  --surf2:    #231A10;
+  --surf3:    #2E2416;
+  --border:   #3D3020;
+  --gold:     #F59E0B;
+  --gold-dk:  #D97706;
+  --gold-lt:  #FCD34D;
+  --warm:     #EA580C;
+  --red:      #DC2626;
+  --blue:     #60A5FA;
+  --green:    #22C55E;
+  --text:     #F5EDE0;
+  --text-2:   #A89880;
+  --text-3:   #6B5D4F;
+  --radius:   14px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, 'Noto Sans KR', 'Segoe UI', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+/* ── Header ── */
+.header {
+  background: linear-gradient(135deg, #1A140D 0%, #231A10 100%);
+  border-bottom: 1px solid var(--border);
+  padding: 16px 28px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 20px rgba(0,0,0,.5);
+}
+.header-logo {
+  font-size: 36px;
+  line-height: 1;
+  filter: drop-shadow(0 2px 8px rgba(245,158,11,.4));
+}
+.header-title {
+  font-size: 20px;
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--gold-lt) 0%, var(--gold) 60%, #F97316 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -.4px;
+}
+.header-sub { font-size: 12px; color: var(--text-2); margin-top: 2px; }
+
+/* ── Tabs ── */
+.tab-bar {
+  display: flex;
+  background: var(--surf1);
+  border-bottom: 1px solid var(--border);
+  padding: 0 28px;
+  gap: 4px;
+}
+.tab-btn {
+  padding: 13px 22px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-2);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all .2s;
+  letter-spacing: -.2px;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--gold); border-bottom-color: var(--gold); }
+
+/* ── Layout ── */
+.pane { display: none; }
+.pane.active { display: block; }
+.container { max-width: 860px; margin: 0 auto; padding: 32px 24px; }
+
+/* ── Card ── */
+.card {
+  background: var(--surf1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 22px 24px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 12px rgba(0,0,0,.3);
+  transition: border-color .25s, box-shadow .25s;
+}
+.card:hover { border-color: rgba(245,158,11,.3); box-shadow: 0 4px 20px rgba(0,0,0,.35); }
+.card-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-2);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.card-title::before {
+  content: '';
+  display: inline-block;
+  width: 3px; height: 14px;
+  background: linear-gradient(var(--gold-lt), var(--gold));
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* ── Form ── */
+.field { margin-bottom: 18px; }
+.field:last-child { margin-bottom: 0; }
+.field label { display: block; font-size: 13px; color: var(--text-2); margin-bottom: 6px; font-weight: 600; }
+.field input[type="text"],
+.field input[type="password"],
+.field input[type="url"],
+.field textarea {
+  width: 100%;
+  background: var(--surf2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  padding: 11px 15px;
+  font-size: 14px;
+  font-family: inherit;
+  transition: border-color .2s, box-shadow .2s;
+}
+.field input:focus,
+.field textarea:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(245,158,11,.15);
+}
+.field textarea { resize: vertical; min-height: 90px; }
+.field .hint { font-size: 12px; color: var(--text-2); margin-top: 5px; line-height: 1.55; }
+
+/* ── Buttons ── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 10px 22px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all .2s;
+  font-family: inherit;
+  white-space: nowrap;
+  letter-spacing: -.1px;
+}
+.btn:disabled { opacity: .45; cursor: not-allowed; transform: none !important; box-shadow: none !important; }
+
+/* 골드 저장 버튼 */
+.btn-green {
+  background: linear-gradient(135deg, var(--gold-dk), var(--gold));
+  border-color: var(--gold);
+  color: #fff;
+  box-shadow: 0 2px 12px rgba(245,158,11,.3);
+}
+.btn-green:hover:not(:disabled) {
+  background: linear-gradient(135deg, var(--gold), var(--gold-lt));
+  box-shadow: 0 4px 20px rgba(245,158,11,.45);
+  transform: translateY(-1px);
+}
+
+/* 대형 CTA 버튼 */
+.btn-green-lg {
+  width: 100%;
+  padding: 17px;
+  font-size: 17px;
+  font-weight: 800;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--gold-dk) 0%, var(--gold) 55%, #FBBF24 100%);
+  border: none;
+  color: #fff;
+  box-shadow: 0 4px 28px rgba(245,158,11,.4), inset 0 1px 0 rgba(255,255,255,.15);
+  letter-spacing: -.2px;
+  margin-bottom: 4px;
+  text-shadow: 0 1px 2px rgba(0,0,0,.2);
+}
+.btn-green-lg:hover:not(:disabled) {
+  background: linear-gradient(135deg, var(--gold) 0%, var(--gold-lt) 100%);
+  box-shadow: 0 6px 36px rgba(245,158,11,.55), inset 0 1px 0 rgba(255,255,255,.2);
+  transform: translateY(-2px);
+}
+.btn-green-lg:active:not(:disabled) { transform: translateY(0); box-shadow: 0 2px 12px rgba(245,158,11,.3); }
+
+/* 아웃라인 (보조) */
+.btn-outline {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--text-2);
+}
+.btn-outline:hover:not(:disabled) {
+  border-color: var(--gold);
+  color: var(--gold);
+  background: rgba(245,158,11,.06);
+}
+
+/* 블루 (Google) */
+.btn-blue {
+  background: linear-gradient(135deg, #1d4ed8, #2563eb);
+  border-color: #3b82f6;
+  color: #fff;
+  box-shadow: 0 2px 12px rgba(37,99,235,.3);
+}
+.btn-blue:hover:not(:disabled) {
+  background: linear-gradient(135deg, #2563eb, #60a5fa);
+  box-shadow: 0 4px 20px rgba(37,99,235,.45);
+  transform: translateY(-1px);
+}
+
+/* ── URL Row ── */
+.url-row { display: flex; gap: 10px; }
+.url-row input { flex: 1; min-width: 0; }
+
+/* ── Steps ── */
+.steps { display: flex; flex-direction: column; gap: 10px; margin: 22px 0; }
+.step {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  background: var(--surf2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  transition: all .3s cubic-bezier(.4,0,.2,1);
+}
+.step.st-active {
+  border-color: var(--gold);
+  background: rgba(245,158,11,.06);
+  box-shadow: 0 0 0 1px rgba(245,158,11,.15), 0 4px 16px rgba(245,158,11,.08);
+}
+.step.st-done {
+  border-color: var(--green);
+  background: rgba(34,197,94,.06);
+  box-shadow: 0 0 0 1px rgba(34,197,94,.12);
+}
+.step.st-error {
+  border-color: var(--red);
+  background: rgba(220,38,38,.06);
+  box-shadow: 0 0 0 1px rgba(220,38,38,.12);
+}
+.step.st-skip {
+  border-color: var(--warm);
+  background: rgba(234,88,12,.06);
+  box-shadow: 0 0 0 1px rgba(234,88,12,.12);
+}
+
+.step-num {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  background: var(--surf3);
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: background .3s, color .3s;
+}
+.step.st-active .step-num {
+  background: var(--gold);
+  color: #fff;
+  animation: glow-gold 1.5s ease-in-out infinite;
+}
+.step.st-done   .step-num { background: var(--green); color: #fff; }
+.step.st-error  .step-num { background: var(--red);   color: #fff; }
+.step.st-skip   .step-num { background: var(--warm);  color: #fff; }
+
+@keyframes glow-gold {
+  0%,100% { box-shadow: 0 0 0 0 rgba(245,158,11,.4); }
+  50%     { box-shadow: 0 0 0 6px rgba(245,158,11,0); }
+}
+
+.step-body { flex: 1; }
+.step-label { font-size: 14px; font-weight: 700; }
+.step-desc  { font-size: 12px; color: var(--text-2); margin-top: 2px; }
+.step-tag {
+  font-size: 12px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--surf3);
+  color: var(--text-2);
+  flex-shrink: 0;
+  font-weight: 600;
+}
+.step.st-active .step-tag { background: rgba(245,158,11,.18); color: var(--gold); }
+.step.st-done   .step-tag { background: rgba(34,197,94,.18);  color: var(--green); }
+.step.st-error  .step-tag { background: rgba(220,38,38,.18);  color: var(--red); }
+.step.st-skip   .step-tag { background: rgba(234,88,12,.18);  color: var(--warm); }
+
+@keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.65)} }
+.step.st-active .step-tag::before {
+  content: '';
+  display: inline-block;
+  width: 6px; height: 6px;
+  background: var(--gold);
+  border-radius: 50%;
+  margin-right: 5px;
+  vertical-align: middle;
+  animation: pulse-dot 1s ease-in-out infinite;
+}
+
+/* ── Preview ── */
+.preview-wrap { margin-top: 24px; display: none; }
+.preview-wrap.show { display: block; }
+.preview-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.preview-toolbar-title { font-size: 14px; font-weight: 700; color: var(--text-2); }
+.preview-toolbar-btns  { display: flex; gap: 8px; }
+.preview-frame {
+  background: #FFFDF8;
+  border-radius: var(--radius);
+  padding: 36px 40px;
+  color: #2C1F0A;
+  line-height: 1.9;
+  font-size: 15px;
+  min-height: 200px;
+  max-height: 680px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  box-shadow: inset 0 1px 6px rgba(0,0,0,.07);
+}
+.preview-frame h2 { font-size: 22px; font-weight: 800; margin-bottom: 18px; color: #1A0F05; }
+.preview-frame h3 { font-size: 17px; font-weight: 700; margin: 22px 0 10px; color: #2C1505; }
+.preview-frame p  { margin-bottom: 14px; }
+.preview-frame ul { padding-left: 22px; margin-bottom: 14px; }
+.preview-frame li { margin-bottom: 6px; }
+.preview-frame strong { font-weight: 700; color: #8B4000; }
+
+/* ── Post result ── */
+.post-result {
+  display: none;
+  margin-top: 18px;
+  padding: 18px 22px;
+  background: linear-gradient(135deg, rgba(34,197,94,.08), rgba(34,197,94,.04));
+  border: 1px solid rgba(34,197,94,.35);
+  border-radius: var(--radius);
+  align-items: center;
+  gap: 16px;
+}
+.post-result.show { display: flex; }
+.post-result-icon { font-size: 30px; }
+.post-result-link { color: var(--green); font-weight: 700; text-decoration: none; font-size: 15px; }
+.post-result-link:hover { text-decoration: underline; }
+
+/* ── Notice / Alert ── */
+.notice {
+  padding: 12px 15px;
+  border-radius: 10px;
+  font-size: 13px;
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  line-height: 1.55;
+}
+.notice-warn  { background: rgba(234,88,12,.1);  border: 1px solid rgba(234,88,12,.3);  color: #f97316; }
+.notice-info  { background: rgba(96,165,250,.1); border: 1px solid rgba(96,165,250,.3); color: var(--blue); }
+.notice-green { background: rgba(34,197,94,.1);  border: 1px solid rgba(34,197,94,.3);  color: var(--green); }
+
+/* ── Auth status ── */
+.auth-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.auth-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 14px; border-radius: 999px;
+  font-size: 13px; font-weight: 700;
+}
+.auth-badge-ok { background: rgba(34,197,94,.15);  color: var(--green); }
+.auth-badge-no { background: rgba(220,38,38,.15);  color: var(--red); }
+
+/* ── Section divider ── */
+.section-hr { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
+
+/* ── Save area ── */
+.save-area {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+  margin-top: 4px;
+  padding: 4px 0;
+}
+.save-time { font-size: 12px; color: var(--text-2); }
+.save-time strong { color: var(--gold); font-weight: 700; }
+
+/* 입력 필드 옆 "저장됨" 뱃지 */
+.label-saved {
+  display: inline-block;
+  font-size: 11px;
+  color: var(--gold);
+  background: rgba(245,158,11,.12);
+  padding: 1px 8px;
+  border-radius: 999px;
+  margin-left: 6px;
+  font-weight: 700;
+  vertical-align: middle;
+  opacity: 0;
+  transition: opacity .3s;
+}
+.label-saved.show { opacity: 1; }
+
+/* 설정 불러옴 알림 */
+.loaded-notice {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 17px;
+  background: rgba(245,158,11,.07);
+  border: 1px solid rgba(245,158,11,.25);
+  border-radius: 10px;
+  font-size: 13px;
+  color: var(--gold);
+  margin-bottom: 20px;
+  font-weight: 600;
+}
+.loaded-notice.show { display: flex; }
+.loaded-notice-close {
+  background: none; border: none;
+  color: var(--text-3); cursor: pointer;
+  font-size: 18px; line-height: 1; padding: 0 2px;
+  transition: color .2s;
+}
+.loaded-notice-close:hover { color: var(--text-2); }
+
+/* ── Responsive ── */
+@media (max-width: 600px) {
+  .container     { padding: 20px 16px; }
+  .preview-frame { padding: 20px 16px; }
+  .preview-toolbar { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .save-area { flex-direction: column; align-items: flex-end; gap: 8px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ════════════════ FILE:// 경고 배너 ════════════════ -->
+<div id="file-warn-banner" style="display:none;
+  background: linear-gradient(135deg,#7c1d1d,#991b1b);
+  border-bottom: 2px solid #dc2626;
+  padding: 14px 28px;
+  font-size: 14px;
+  color: #fecaca;
+  line-height: 1.7;">
+  <strong style="color:#fca5a5;font-size:15px;">⚠️ Google 로그인을 사용하려면 서버가 필요해요</strong><br>
+  지금 이 파일을 <code style="background:rgba(0,0,0,.3);padding:1px 6px;border-radius:4px;">file://</code> 로 직접 열어서 Google OAuth가 작동하지 않아요.<br>
+  <strong style="color:#fff;">해결 방법:</strong>
+  폴더에서 <code style="background:rgba(0,0,0,.3);padding:1px 6px;border-radius:4px;">server.py</code> 를 실행하거나,
+  터미널에서 <code style="background:rgba(0,0,0,.3);padding:1px 6px;border-radius:4px;">python server.py</code> 를 입력하세요.<br>
+  <span style="color:#fbbf24;">그러면 브라우저가 자동으로 <strong>http://localhost:8000/auto_blog.html</strong> 로 열려요.</span>
+</div>
+
+<!-- ════════════════ HEADER ════════════════ -->
+<header class="header">
+  <div class="header-logo">🍚</div>
+  <div>
+    <div class="header-title">경제 냠냠 블로그 스튜디오</div>
+    <div class="header-sub">유튜브 영상 → 경제 냠냠 블로그 자동 변환</div>
+  </div>
+</header>
+
+<!-- ════════════════ TAB BAR ════════════════ -->
+<nav class="tab-bar">
+  <button class="tab-btn active" data-tab="main"     onclick="switchTab(this,'main')">✏️ 글 생성</button>
+  <button class="tab-btn"        data-tab="settings" onclick="switchTab(this,'settings')">⚙️ API 설정</button>
+</nav>
+
+<!-- ════════════════ 메인 탭 ════════════════ -->
+<div id="pane-main" class="pane active">
+<div class="container">
+
+  <!-- URL 입력 -->
+  <div class="card">
+    <div class="card-title">유튜브 영상 URL</div>
+    <div class="url-row">
+      <input type="url" id="yt-url"
+             placeholder="https://www.youtube.com/watch?v=..."
+             onkeydown="if(event.key==='Enter')startGeneration()" />
+      <button class="btn btn-outline" onclick="pasteUrl()">📋 붙여넣기</button>
+    </div>
+  </div>
+
+  <!-- 생성 버튼 -->
+  <button class="btn btn-green-lg" id="gen-btn" onclick="startGeneration()">
+    🚀 블로그 글 자동 생성하기
+  </button>
+
+  <!-- 진행 단계 -->
+  <div id="steps-wrap" style="display:none;">
+    <div class="steps">
+      <div class="step" id="step-1">
+        <div class="step-num" id="step-1-num">1</div>
+        <div class="step-body">
+          <div class="step-label">Gemini — 영상 분석 및 초안 생성</div>
+          <div class="step-desc" id="step-1-desc">gemini-3.5-flash 로 유튜브 영상을 분석해요</div>
+        </div>
+        <div class="step-tag" id="step-1-tag">대기</div>
+      </div>
+      <div class="step" id="step-2">
+        <div class="step-num" id="step-2-num">2</div>
+        <div class="step-body">
+          <div class="step-label">Claude — 경제 냠냠 스타일 다듬기</div>
+          <div class="step-desc" id="step-2-desc">claude-haiku-4-5 로 시니어 친화 문체로 바꿔요</div>
+        </div>
+        <div class="step-tag" id="step-2-tag">대기</div>
+      </div>
+      <div class="step" id="step-3">
+        <div class="step-num" id="step-3-num">3</div>
+        <div class="step-body">
+          <div class="step-label">Blogger — 자동 포스팅</div>
+          <div class="step-desc" id="step-3-desc">Blogger API 로 블로그에 발행해요</div>
+        </div>
+        <div class="step-tag" id="step-3-tag">대기</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 미리보기 -->
+  <div id="preview-wrap" class="preview-wrap">
+    <div class="preview-toolbar">
+      <div class="preview-toolbar-title">📄 완성된 블로그 글 미리보기</div>
+      <div class="preview-toolbar-btns">
+        <button class="btn btn-outline" onclick="copyHtml()">📋 HTML 복사</button>
+        <button class="btn btn-blue"    id="post-btn" onclick="postToBlogger()">📤 Blogger 포스팅</button>
+      </div>
+    </div>
+    <div class="preview-frame" id="preview-content"></div>
+  </div>
+
+  <!-- 포스팅 완료 -->
+  <div id="post-result" class="post-result">
+    <div class="post-result-icon">🎉</div>
+    <div>
+      <div style="font-weight:700; margin-bottom:4px; color:var(--green);">포스팅 완료!</div>
+      <a id="result-url" class="post-result-link" href="#" target="_blank">블로그에서 확인하기 →</a>
+    </div>
+  </div>
+
+</div>
+</div><!-- /pane-main -->
+
+<!-- ════════════════ 설정 탭 ════════════════ -->
+<div id="pane-settings" class="pane">
+<div class="container">
+
+  <!-- 저장된 설정 불러옴 알림 -->
+  <div id="loaded-notice" class="loaded-notice">
+    <span>💾 저장된 설정을 자동으로 불러왔어요</span>
+    <button class="loaded-notice-close" onclick="this.parentElement.classList.remove('show')" title="닫기">×</button>
+  </div>
+
+  <!-- Gemini -->
+  <div class="card">
+    <div class="card-title">Gemini API</div>
+    <div class="field">
+      <label>API 키 <span id="badge-gemini" class="label-saved">저장됨</span></label>
+      <input type="password" id="s-gemini" placeholder="AIzaSy..." autocomplete="off" oninput="markDirty('gemini')" />
+      <div class="hint">Google AI Studio → API 키 만들기</div>
+    </div>
+  </div>
+
+  <!-- Claude -->
+  <div class="card">
+    <div class="card-title">Claude API (Anthropic)</div>
+    <div class="field">
+      <label>API 키 <span id="badge-claude" class="label-saved">저장됨</span></label>
+      <input type="password" id="s-claude" placeholder="sk-ant-..." autocomplete="off" oninput="markDirty('claude')" />
+      <div class="hint">console.anthropic.com → API Keys</div>
+    </div>
+    <div class="notice notice-warn">
+      ⚠️ 브라우저에서 Claude API를 직접 호출하려면 <code>anthropic-dangerous-direct-browser-access</code> 헤더가 필요해요.
+      일부 환경(CORS 정책)에서 막힐 경우 Gemini가 자동으로 대신 처리해요.
+    </div>
+  </div>
+
+  <!-- Blogger / Google -->
+  <div class="card">
+    <div class="card-title">Blogger API (Google OAuth)</div>
+    <div class="field">
+      <label>Google OAuth 2.0 클라이언트 ID <span id="badge-client-id" class="label-saved">저장됨</span></label>
+      <input type="text" id="s-client-id" placeholder="123456789.apps.googleusercontent.com" oninput="markDirty('client-id')" />
+      <div class="hint">
+        Google Cloud Console → API 및 서비스 → 사용자 인증 정보에서
+        <strong>웹 애플리케이션</strong> 유형으로 OAuth 클라이언트 ID를 만들어 주세요.
+      </div>
+    </div>
+
+    <!-- Google Cloud Console 설정 안내 박스 -->
+    <div id="oauth-setup-box" style="
+      background: rgba(96,165,250,.06);
+      border: 1px solid rgba(96,165,250,.3);
+      border-radius: 12px;
+      padding: 16px 18px;
+      margin-top: 4px;
+      font-size: 13px;
+      color: var(--blue);
+      line-height: 1.8;">
+      <div style="font-weight:700;margin-bottom:8px;font-size:14px;">🔧 Google Cloud Console 설정 (복사해서 붙여넣기)</div>
+      <div style="margin-bottom:6px;">
+        <span style="color:var(--text-2);">① 승인된 자바스크립트 원본:</span><br>
+        <code id="oauth-origin" style="
+          display:block;
+          background:rgba(0,0,0,.35);
+          padding:6px 12px;
+          border-radius:6px;
+          font-size:13px;
+          color:#93c5fd;
+          margin-top:4px;
+          cursor:pointer;
+          user-select:all;"
+          onclick="copyOauthUrl(this)"
+          title="클릭하면 복사">—</code>
+      </div>
+      <div>
+        <span style="color:var(--text-2);">② 승인된 리디렉션 URI:</span><br>
+        <code id="oauth-redirect" style="
+          display:block;
+          background:rgba(0,0,0,.35);
+          padding:6px 12px;
+          border-radius:6px;
+          font-size:13px;
+          color:#93c5fd;
+          margin-top:4px;
+          cursor:pointer;
+          user-select:all;"
+          onclick="copyOauthUrl(this)"
+          title="클릭하면 복사">—</code>
+      </div>
+      <div style="color:var(--text-3);font-size:11px;margin-top:8px;">
+        💡 위 주소를 클릭하면 복사돼요. Google Cloud Console에 그대로 붙여넣기 하세요.
+      </div>
+    </div>
+    <div class="field">
+      <label>블로그 ID <span id="badge-blog-id" class="label-saved">저장됨</span></label>
+      <input type="text" id="s-blog-id" placeholder="1234567890123456789" oninput="markDirty('blog-id')" />
+      <div class="hint">Blogger 관리 → 설정 → 기본 → 블로그 ID (URL에서도 확인 가능)</div>
+    </div>
+
+    <hr class="section-hr">
+
+    <div class="card-title" style="margin-bottom:12px;">Google 계정 연결</div>
+    <div class="auth-row">
+      <button class="btn btn-blue" id="auth-btn" onclick="startGoogleAuth()">🔑 Google 로그인</button>
+      <span id="auth-badge" class="auth-badge auth-badge-no">연결 안됨</span>
+    </div>
+    <div class="notice notice-info" style="margin-top:12px;">
+      ℹ️ 로그인 후 발급된 토큰은 브라우저 세션에만 저장되며, 브라우저를 닫으면 재로그인이 필요해요.
+    </div>
+  </div>
+
+  <!-- 저장 버튼 영역 -->
+  <div class="save-area">
+    <div id="save-time" class="save-time" style="display:none;">
+      마지막 저장: <strong id="save-time-value"></strong>
+    </div>
+    <button class="btn btn-green" id="save-btn" onclick="saveSettings()">💾 설정 저장</button>
+  </div>
+
+</div>
+</div><!-- /pane-settings -->
+
+<!-- ════════════════ JAVASCRIPT ════════════════ -->
+<script>
+'use strict';
+
+// ───────────────────────────────────────────────
+// 상수
+// ───────────────────────────────────────────────
+const GEMINI_MODEL = 'gemini-3.5-flash';
+const CLAUDE_MODEL = 'claude-haiku-4-5';
+const BLOGGER_SCOPE = 'https://www.googleapis.com/auth/blogger';
+
+// ───────────────────────────────────────────────
+// 상태
+// ───────────────────────────────────────────────
+let gAccessToken   = null;   // Google OAuth token
+let gGeneratedHtml = '';
+let gGeneratedTitle = '';
+
+// ───────────────────────────────────────────────
+// 탭 전환
+// ───────────────────────────────────────────────
+function switchTab(btn, name) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.pane').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('pane-' + name).classList.add('active');
+}
+
+// ───────────────────────────────────────────────
+// 설정 저장 / 불러오기
+// ───────────────────────────────────────────────
+
+// localStorage key → input id 매핑
+const FIELD_MAP = [
+  { key: 'gemini',    inputId: 's-gemini',    badgeId: 'badge-gemini'    },
+  { key: 'claude',    inputId: 's-claude',    badgeId: 'badge-claude'    },
+  { key: 'client_id', inputId: 's-client-id', badgeId: 'badge-client-id' },
+  { key: 'blog_id',   inputId: 's-blog-id',   badgeId: 'badge-blog-id'   },
+];
+
+function saveSettings() {
+  FIELD_MAP.forEach(({ key, inputId, badgeId }) => {
+    const val = document.getElementById(inputId).value.trim();
+    localStorage.setItem('ec_' + key, val);
+    // 저장됨 뱃지 표시
+    const badge = document.getElementById(badgeId);
+    if (badge) badge.classList.toggle('show', val.length > 0);
+  });
+
+  // 저장 시각 기록
+  const now = new Date();
+  const ts  = now.toLocaleString('ko-KR', { year:'numeric', month:'2-digit', day:'2-digit',
+                                             hour:'2-digit', minute:'2-digit' });
+  localStorage.setItem('ec_saved_at', ts);
+  showSaveTime(ts);
+
+  // 버튼 상태 전환: "✅ 저장 완료!" → 1.5초 후 원래대로
+  const btn = document.getElementById('save-btn');
+  btn.textContent = '✅ 저장 완료!';
+  btn.style.background = 'var(--green)';
+  btn.disabled = true;
+  setTimeout(() => {
+    btn.textContent = '💾 설정 저장';
+    btn.style.background = '';
+    btn.disabled = false;
+  }, 1500);
+}
+
+function loadSettings() {
+  let hasAny = false;
+  FIELD_MAP.forEach(({ key, inputId, badgeId }) => {
+    const val = localStorage.getItem('ec_' + key) || '';
+    document.getElementById(inputId).value = val;
+    const badge = document.getElementById(badgeId);
+    if (badge && val.length > 0) { badge.classList.add('show'); hasAny = true; }
+  });
+
+  // 저장 시각 복원
+  const savedAt = localStorage.getItem('ec_saved_at');
+  if (savedAt) showSaveTime(savedAt);
+
+  // 저장된 값이 하나라도 있으면 불러옴 알림 표시
+  if (hasAny) {
+    document.getElementById('loaded-notice').classList.add('show');
+  }
+}
+
+function showSaveTime(ts) {
+  const wrap = document.getElementById('save-time');
+  document.getElementById('save-time-value').textContent = ts;
+  wrap.style.display = 'block';
+}
+
+// 입력값 변경 시 해당 필드의 "저장됨" 뱃지 숨김 (미저장 상태)
+function markDirty(fieldName) {
+  const map = { gemini:'badge-gemini', claude:'badge-claude',
+                'client-id':'badge-client-id', 'blog-id':'badge-blog-id' };
+  const badgeId = map[fieldName];
+  if (!badgeId) return;
+  const badge  = document.getElementById(badgeId);
+  const input  = badge?.closest('.field')?.querySelector('input');
+  if (!badge || !input) return;
+
+  // localStorage 값과 현재 값이 다르면 뱃지 숨김
+  const lsKey  = { gemini:'ec_gemini', claude:'ec_claude',
+                   'client-id':'ec_client_id', 'blog-id':'ec_blog_id' }[fieldName];
+  const saved  = localStorage.getItem(lsKey) || '';
+  badge.classList.toggle('show', input.value.trim() === saved && saved.length > 0);
+}
+
+function get(key) { return localStorage.getItem('ec_' + key) || ''; }
+
+// ───────────────────────────────────────────────
+// Toast 알림
+// ───────────────────────────────────────────────
+function showToast(msg) {
+  let t = document.getElementById('_toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = '_toast';
+    Object.assign(t.style, {
+      position:'fixed', bottom:'28px', right:'28px', zIndex:'9999',
+      background:'#238636', color:'#fff', padding:'12px 20px',
+      borderRadius:'8px', fontWeight:'600', fontSize:'14px',
+      boxShadow:'0 4px 20px rgba(0,0,0,.5)', transition:'opacity .3s',
+    });
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.opacity = '1';
+  clearTimeout(t._hide);
+  t._hide = setTimeout(() => { t.style.opacity = '0'; }, 2800);
+}
+
+// ───────────────────────────────────────────────
+// URL 붙여넣기
+// ───────────────────────────────────────────────
+async function pasteUrl() {
+  try {
+    const text = await navigator.clipboard.readText();
+    document.getElementById('yt-url').value = text;
+  } catch {
+    showToast('⌨️ Ctrl+V 로 직접 붙여넣기 해주세요');
+  }
+}
+
+// ───────────────────────────────────────────────
+// 유튜브 비디오 ID 추출
+// ───────────────────────────────────────────────
+function extractVideoId(url) {
+  const patterns = [
+    /(?:youtube\.com\/watch\?(?:.*&)?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/)([A-Za-z0-9_-]{11})/,
+    /youtube\.com\/shorts\/([A-Za-z0-9_-]{11})/,
+  ];
+  for (const p of patterns) {
+    const m = url.match(p);
+    if (m) return m[1];
+  }
+  return null;
+}
+
+// ───────────────────────────────────────────────
+// 단계 UI 업데이트
+// ───────────────────────────────────────────────
+function setStep(n, state, tagText, descText) {
+  const el     = document.getElementById('step-' + n);
+  const numEl  = document.getElementById('step-' + n + '-num');
+  const tagEl  = document.getElementById('step-' + n + '-tag');
+  const descEl = document.getElementById('step-' + n + '-desc');
+
+  el.className = 'step st-' + state;
+
+  const icons = { active:'⏳', done:'✓', error:'✗', skip:'↷', '':'' };
+  numEl.textContent = icons[state] || n;
+
+  if (tagText  !== undefined) tagEl.textContent  = tagText;
+  if (descText !== undefined) descEl.textContent = descText;
+}
+
+// ───────────────────────────────────────────────
+// Gemini API 호출 (텍스트)
+// ───────────────────────────────────────────────
+async function callGemini(userText, systemContext) {
+  const key = get('gemini');
+  if (!key) throw new Error('Gemini API 키가 없어요. ⚙️ 설정 탭에서 입력해주세요.');
+
+  const parts = [{ text: userText }];
+  const contents = [];
+
+  if (systemContext) {
+    contents.push({ role: 'user',  parts: [{ text: systemContext }] });
+    contents.push({ role: 'model', parts: [{ text: '알겠어요, 안내에 따라 작성할게요.' }] });
+  }
+  contents.push({ role: 'user', parts });
+
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents }),
+    }
+  );
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error('Gemini 오류: ' + (err.error?.message || res.statusText));
+  }
+  const data = await res.json();
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+}
+
+// ───────────────────────────────────────────────
+// Gemini — YouTube URL 포함 분석
+// ───────────────────────────────────────────────
+async function callGeminiVideo(videoUrl, prompt) {
+  const key = get('gemini');
+  if (!key) throw new Error('Gemini API 키가 없어요.');
+
+  const body = {
+    contents: [{
+      parts: [
+        { fileData: { fileUri: videoUrl, mimeType: 'video/mp4' } },
+        { text: prompt }
+      ]
+    }]
+  };
+
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }
+  );
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error('Gemini Video 오류: ' + (err.error?.message || res.statusText));
+  }
+  const data = await res.json();
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+}
+
+// ───────────────────────────────────────────────
+// Claude API 호출 (브라우저 직접)
+// ───────────────────────────────────────────────
+async function callClaude(systemPrompt, userPrompt) {
+  const key = get('claude');
+  if (!key) throw new Error('Claude API 키 없음');
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': key,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
+    body: JSON.stringify({
+      model: CLAUDE_MODEL,
+      max_tokens: 4096,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userPrompt }],
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error('Claude 오류: ' + (err.error?.message || res.statusText));
+  }
+  const data = await res.json();
+  return data.content?.[0]?.text || '';
+}
+
+// ───────────────────────────────────────────────
+// 유튜브 임베드 코드
+// ───────────────────────────────────────────────
+function buildEmbed(videoId) {
+  return `
+<hr style="margin:44px 0 28px;border:none;border-top:1px solid #e8e8e8;">
+<p style="text-align:center;font-size:13px;color:#aaa;margin-bottom:16px;">
+  📺 원본 영상도 함께 보세요!
+</p>
+<div style="text-align:center;margin-bottom:16px;">
+  <iframe width="560" height="315"
+    src="https://www.youtube.com/embed/${videoId}"
+    title="YouTube video player"
+    frameborder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+    allowfullscreen
+    style="max-width:100%;border-radius:8px;">
+  </iframe>
+</div>`;
+}
+
+// ───────────────────────────────────────────────
+// 제목 추출 (h2 첫 번째)
+// ───────────────────────────────────────────────
+function extractTitle(html) {
+  const m = html.match(/<h[12][^>]*>([\s\S]*?)<\/h[12]>/i);
+  if (m) return m[1].replace(/<[^>]+>/g, '').replace(/[🎯📌💡🔥✅🌟💰📈📊🧩]/gu, '').trim();
+  return '경제 냠냠 뉴스';
+}
+
+// ───────────────────────────────────────────────
+// 영상 제목 가져오기 (oEmbed fallback)
+// ───────────────────────────────────────────────
+async function fetchVideoTitle(videoUrl) {
+  try {
+    const r = await fetch(
+      `https://noembed.com/embed?url=${encodeURIComponent(videoUrl)}&format=json`,
+      { mode: 'cors' }
+    );
+    if (!r.ok) return null;
+    const d = await r.json();
+    return d.title || null;
+  } catch {
+    return null;
+  }
+}
+
+// ───────────────────────────────────────────────
+// 프롬프트 텍스트
+// ───────────────────────────────────────────────
+const DRAFT_PROMPT_VID = `
+이 유튜브 영상의 내용을 분석하고 한국어 블로그 포스트 초안을 작성해주세요.
+
+요구사항:
+- 제목 포함 (## 제목 형식)
+- 서론, 본론(소제목 포함), 결론 구조
+- 핵심 내용 3~5가지 정리
+- 독자가 이해하기 쉽게 설명
+- 분량: 800~1200자
+`;
+
+function draftPromptByTitle(title, url) {
+  return `
+다음 유튜브 영상 제목을 바탕으로 관련 경제 정보를 담은 한국어 블로그 포스트 초안을 작성해주세요.
+
+영상 제목: "${title}"
+영상 URL: ${url}
+
+요구사항:
+- 제목 포함 (## 제목 형식)
+- 영상 제목의 주제를 중심으로 경제 상식과 유용한 정보 전달
+- 서론, 본론(소제목 포함), 결론 구조
+- 핵심 내용 3~5가지 정리
+- 분량: 800~1200자
+`;
+}
+
+const STYLE_SYSTEM = `
+당신은 '경제 냠냠' 블로그의 전담 에디터입니다.
+이 블로그는 50~70대 시니어 독자를 위해 경제 뉴스와 정보를 따뜻하고 친근하게 전달합니다.
+
+글쓰기 원칙:
+1. 말투: "~입니다", "~습니다" 대신 "~이에요", "~해요" 같은 따뜻한 존댓말
+2. 어려운 경제 용어는 쉬운 말로 바꾸거나 괄호 안에 짧게 설명 추가
+3. 독자에게 직접 말 걸기 — "여러분", "우리 독자님들" 등 활용
+4. 비유나 일상 사례를 들어 친근하게 설명
+5. 문단 사이 적절한 여백
+6. 제목은 호기심을 자극하는 형태
+7. HTML 형식으로 출력 (h2, h3, p, strong, ul/li 태그 활용)
+8. 이모지를 적절히 활용해 생동감 추가
+
+반드시 HTML 형식으로만 출력하세요. 마크다운 사용 금지.
+`;
+
+function stylePrompt(draft) {
+  return `다음 블로그 초안을 '경제 냠냠' 스타일로 다듬어주세요.
+HTML 형식으로 완성된 블로그 본문만 출력하세요 (제목 포함, 유튜브 embed 코드 제외).
+
+[초안]
+${draft}`;
+}
+
+// ───────────────────────────────────────────────
+// 메인 생성 흐름
+// ───────────────────────────────────────────────
+async function startGeneration() {
+  const rawUrl = document.getElementById('yt-url').value.trim();
+  if (!rawUrl) { showToast('⚠️ 유튜브 URL을 입력해주세요!'); return; }
+
+  const videoId = extractVideoId(rawUrl);
+  if (!videoId) { showToast('⚠️ 올바른 유튜브 URL이 아니에요.'); return; }
+
+  const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+
+  // UI 초기화
+  const genBtn = document.getElementById('gen-btn');
+  genBtn.disabled = true;
+  document.getElementById('steps-wrap').style.display = 'block';
+  document.getElementById('preview-wrap').classList.remove('show');
+  document.getElementById('post-result').classList.remove('show');
+  gGeneratedHtml = '';
+  gGeneratedTitle = '';
+  setStep(1,'','대기'); setStep(2,'','대기'); setStep(3,'','대기');
+
+  try {
+    // ── 단계 1: Gemini 영상 분석 + 초안 ──────────────
+    setStep(1, 'active', '분석 중...');
+
+    let draft;
+    try {
+      // Gemini 영상 직접 분석 시도
+      draft = await callGeminiVideo(videoUrl, DRAFT_PROMPT_VID);
+      setStep(1, 'done', '완료', `${GEMINI_MODEL} — 영상 분석 완료`);
+    } catch (videoErr) {
+      // 영상 분석 실패 → 영상 제목으로 fallback
+      setStep(1, 'active', '제목 기반 생성 중...',
+              '영상 직접 분석 실패 → 제목 기반으로 생성해요');
+
+      const title = await fetchVideoTitle(videoUrl);
+      if (title) {
+        draft = await callGemini(draftPromptByTitle(title, videoUrl));
+        setStep(1, 'skip', '완료(제목 기반)', `"${title.slice(0, 30)}..." 제목 기반 생성`);
+      } else {
+        draft = await callGemini(
+          `유튜브 영상 URL: ${videoUrl}\n이 영상 주제의 경제 블로그 포스트 초안을 한국어로 작성해주세요.`
+        );
+        setStep(1, 'skip', '완료(URL 기반)', 'URL 기반으로 초안 생성');
+      }
+    }
+
+    // ── 단계 2: Claude 스타일 다듬기 ────────────────
+    setStep(2, 'active', '다듬는 중...');
+
+    let refined;
+    let step2Note = '';
+
+    try {
+      refined = await callClaude(STYLE_SYSTEM, stylePrompt(draft));
+      step2Note = CLAUDE_MODEL;
+    } catch (claudeErr) {
+      // Claude 실패(CORS 등) → Gemini fallback
+      console.warn('[Claude fallback]', claudeErr.message);
+      step2Note = 'Gemini 대체 처리 (Claude CORS 제한)';
+      setStep(2, 'active', 'Gemini 대체 중...',
+              'Claude CORS 제한 → Gemini로 스타일 다듬기');
+      refined = await callGemini(stylePrompt(draft), STYLE_SYSTEM);
+    }
+
+    // 임베드 삽입
+    const embed      = buildEmbed(videoId);
+    gGeneratedHtml   = refined + embed;
+    gGeneratedTitle  = extractTitle(refined);
+
+    setStep(2, 'done', '완료', step2Note);
+
+    // 미리보기 표시
+    document.getElementById('preview-content').innerHTML = gGeneratedHtml;
+    document.getElementById('preview-wrap').classList.add('show');
+
+    // 단계 3은 버튼 클릭 시 실행
+    setStep(3, '', '대기', 'Blogger 포스팅 버튼을 눌러주세요');
+
+  } catch (err) {
+    // 현재 active 단계에 에러 표시
+    for (let n = 1; n <= 2; n++) {
+      if (document.getElementById('step-' + n).classList.contains('st-active')) {
+        setStep(n, 'error', '오류', err.message.slice(0, 80));
+        break;
+      }
+    }
+    showToast('❌ 오류: ' + err.message);
+    console.error(err);
+  } finally {
+    genBtn.disabled = false;
+  }
+}
+
+// ───────────────────────────────────────────────
+// Blogger 포스팅
+// ───────────────────────────────────────────────
+async function postToBlogger() {
+  if (!gAccessToken) {
+    showToast('⚠️ 먼저 ⚙️ 설정 탭에서 Google 로그인을 해주세요!');
+    return;
+  }
+  const blogId = get('blog_id');
+  if (!blogId) {
+    showToast('⚠️ 설정 탭에서 블로그 ID를 입력해주세요!');
+    return;
+  }
+  if (!gGeneratedHtml) {
+    showToast('⚠️ 먼저 블로그 글을 생성해주세요!');
+    return;
+  }
+
+  const postBtn = document.getElementById('post-btn');
+  postBtn.disabled = true;
+  setStep(3, 'active', '포스팅 중...');
+
+  try {
+    const res = await fetch(
+      `https://www.googleapis.com/blogger/v3/blogs/${blogId}/posts/`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + gAccessToken,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          kind: 'blogger#post',
+          title: gGeneratedTitle,
+          content: gGeneratedHtml,
+        }),
+      }
+    );
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      if (res.status === 401) {
+        gAccessToken = null;
+        localStorage.removeItem('ec_oauth_token');
+        localStorage.removeItem('ec_oauth_expires');
+        updateAuthBadge(false);
+        throw new Error('로그인이 만료됐어요. ⚙️ 설정 탭에서 다시 Google 로그인 해주세요.');
+      }
+      throw new Error(err.error?.message || '포스팅 실패 (HTTP ' + res.status + ')');
+    }
+
+    const post = await res.json();
+    setStep(3, 'done', '발행 완료!', post.url || '');
+
+    document.getElementById('result-url').href        = post.url || '#';
+    document.getElementById('result-url').textContent = post.url ? '블로그에서 확인하기 →' : '확인하기 →';
+    document.getElementById('post-result').classList.add('show');
+
+  } catch (err) {
+    setStep(3, 'error', '오류', err.message.slice(0, 80));
+    showToast('❌ 포스팅 오류: ' + err.message);
+  } finally {
+    postBtn.disabled = false;
+  }
+}
+
+// ───────────────────────────────────────────────
+// HTML 복사
+// ───────────────────────────────────────────────
+async function copyHtml() {
+  if (!gGeneratedHtml) { showToast('복사할 내용이 없어요.'); return; }
+  try {
+    await navigator.clipboard.writeText(gGeneratedHtml);
+    showToast('✅ HTML이 클립보드에 복사됐어요!');
+  } catch {
+    showToast('복사 실패. 직접 선택해서 Ctrl+C 해주세요.');
+  }
+}
+
+// ───────────────────────────────────────────────
+// Google OAuth (Implicit Grant Flow)
+// ───────────────────────────────────────────────
+function startGoogleAuth() {
+  if (window.location.protocol === 'file:') {
+    alert('⚠️ Google 로그인은 file:// 에서 작동하지 않아요.\n\n폴더에서 server.py 를 실행한 뒤\nhttp://localhost:8000/auto_blog.html 로 다시 열어주세요.');
+    return;
+  }
+
+  const clientId = get('client_id');
+  if (!clientId) {
+    showToast('⚠️ 설정 탭에서 Google OAuth Client ID를 먼저 입력하고 저장해주세요.');
+    return;
+  }
+
+  const redirectUri = window.location.href.split('?')[0].split('#')[0];
+  const params = new URLSearchParams({
+    client_id:     clientId,
+    redirect_uri:  redirectUri,
+    response_type: 'token',
+    scope:         BLOGGER_SCOPE,
+    prompt:        'select_account',
+  });
+
+  window.location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params.toString();
+}
+
+function handleOAuthCallback() {
+  const hash = window.location.hash.slice(1);
+  if (!hash) return;
+
+  const p = new URLSearchParams(hash);
+  const token = p.get('access_token');
+  if (!token) return;
+
+  const expiresIn = parseInt(p.get('expires_in') || '3600');
+  const expiresAt = Date.now() + expiresIn * 1000;
+
+  gAccessToken = token;
+  localStorage.setItem('ec_oauth_token', token);
+  localStorage.setItem('ec_oauth_expires', String(expiresAt));
+
+  window.history.replaceState({}, document.title, window.location.pathname);
+  updateAuthBadge(true);
+  showToast('✅ Google 계정이 연결됐어요!');
+}
+
+function loadSavedToken() {
+  const token   = localStorage.getItem('ec_oauth_token');
+  const expires = parseInt(localStorage.getItem('ec_oauth_expires') || '0');
+  if (!token || Date.now() >= expires) {
+    localStorage.removeItem('ec_oauth_token');
+    localStorage.removeItem('ec_oauth_expires');
+    return false;
+  }
+  gAccessToken = token;
+  return true;
+}
+
+function updateAuthBadge(connected) {
+  const badge = document.getElementById('auth-badge');
+  if (connected) {
+    badge.className = 'auth-badge auth-badge-ok';
+    badge.textContent = '✅ 연결됨';
+  } else {
+    badge.className = 'auth-badge auth-badge-no';
+    badge.textContent = '연결 안됨';
+  }
+}
+
+// ───────────────────────────────────────────────
+// OAuth URL 복사
+// ───────────────────────────────────────────────
+async function copyOauthUrl(el) {
+  try {
+    await navigator.clipboard.writeText(el.textContent);
+    showToast('✅ 복사됐어요! Google Cloud Console에 붙여넣기 하세요.');
+  } catch {
+    showToast('⌨️ 주소를 드래그해서 Ctrl+C 로 복사해주세요.');
+  }
+}
+
+// ───────────────────────────────────────────────
+// 초기화
+// ───────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  loadSettings();
+  handleOAuthCallback();
+  if (!gAccessToken && loadSavedToken()) {
+    updateAuthBadge(true);
+  } else if (gAccessToken) {
+    updateAuthBadge(true);
+  }
+
+  // file:// 프로토콜 감지
+  if (window.location.protocol === 'file:') {
+    document.getElementById('file-warn-banner').style.display = 'block';
+  }
+
+  // OAuth URL 표시 (현재 페이지 기준)
+  const origin   = window.location.origin;
+  const fullUrl  = window.location.href.split('?')[0].split('#')[0];
+  const originEl  = document.getElementById('oauth-origin');
+  const redirectEl = document.getElementById('oauth-redirect');
+  if (originEl)  originEl.textContent  = (window.location.protocol === 'file:') ? 'http://localhost:8000' : origin;
+  if (redirectEl) redirectEl.textContent = (window.location.protocol === 'file:') ? 'http://localhost:8000/auto_blog.html' : fullUrl;
+});
+</script>
+</body>
+</html>
