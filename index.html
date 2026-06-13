@@ -523,7 +523,7 @@ body {
         <div class="step-num" id="step-2-num">2</div>
         <div class="step-body">
           <div class="step-label">Claude — 경제 냠냠 스타일 다듬기</div>
-          <div class="step-desc" id="step-2-desc">claude-haiku-4-5 로 시니어 친화 문체로 바꿔요</div>
+          <div class="step-desc" id="step-2-desc">claude-sonnet-4-6 로 시니어 친화 문체로 바꿔요</div>
         </div>
         <div class="step-tag" id="step-2-tag">대기</div>
       </div>
@@ -577,7 +577,7 @@ body {
     <div class="card-title">Gemini API</div>
     <div class="field">
       <label>API 키 <span id="badge-gemini" class="label-saved">저장됨</span></label>
-      <input type="password" id="s-gemini" placeholder="AIzaSy..." autocomplete="off" oninput="markDirty('gemini')" />
+      <input type="password" id="s-gemini" placeholder="AIzaSy..." autocomplete="off" oninput="markDirty('gemini')" onchange="saveSettings()" />
       <div class="hint">Google AI Studio → API 키 만들기</div>
     </div>
   </div>
@@ -587,7 +587,7 @@ body {
     <div class="card-title">Claude API (Anthropic)</div>
     <div class="field">
       <label>API 키 <span id="badge-claude" class="label-saved">저장됨</span></label>
-      <input type="password" id="s-claude" placeholder="sk-ant-..." autocomplete="off" oninput="markDirty('claude')" />
+      <input type="password" id="s-claude" placeholder="sk-ant-..." autocomplete="off" oninput="markDirty('claude')" onchange="saveSettings()" />
       <div class="hint">console.anthropic.com → API Keys</div>
     </div>
     <div class="notice notice-warn">
@@ -601,7 +601,7 @@ body {
     <div class="card-title">Blogger API (Google OAuth)</div>
     <div class="field">
       <label>Google OAuth 2.0 클라이언트 ID <span id="badge-client-id" class="label-saved">저장됨</span></label>
-      <input type="text" id="s-client-id" placeholder="123456789.apps.googleusercontent.com" oninput="markDirty('client-id')" />
+      <input type="text" id="s-client-id" placeholder="123456789.apps.googleusercontent.com" oninput="markDirty('client-id')" onchange="saveSettings()" />
       <div class="hint">
         Google Cloud Console → API 및 서비스 → 사용자 인증 정보에서
         <strong>웹 애플리케이션</strong> 유형으로 OAuth 클라이언트 ID를 만들어 주세요.
@@ -655,7 +655,7 @@ body {
     </div>
     <div class="field">
       <label>블로그 ID <span id="badge-blog-id" class="label-saved">저장됨</span></label>
-      <input type="text" id="s-blog-id" placeholder="1234567890123456789" oninput="markDirty('blog-id')" />
+      <input type="text" id="s-blog-id" placeholder="1234567890123456789" oninput="markDirty('blog-id')" onchange="saveSettings()" />
       <div class="hint">Blogger 관리 → 설정 → 기본 → 블로그 ID (URL에서도 확인 가능)</div>
     </div>
 
@@ -667,7 +667,7 @@ body {
       <span id="auth-badge" class="auth-badge auth-badge-no">연결 안됨</span>
     </div>
     <div class="notice notice-info" style="margin-top:12px;">
-      ℹ️ 로그인 후 발급된 토큰은 브라우저 세션에만 저장되며, 브라우저를 닫으면 재로그인이 필요해요.
+      ℹ️ 보안상 구글 로그인은 1시간 동안 유지됩니다. (새로고침해도 작성 중인 글과 설정은 안전하게 자동 복구돼요!)
     </div>
   </div>
 
@@ -690,7 +690,7 @@ body {
 // 상수
 // ───────────────────────────────────────────────
 const GEMINI_MODEL = 'gemini-3.5-flash';
-const CLAUDE_MODEL = 'claude-haiku-4-5';
+const CLAUDE_MODEL = 'claude-sonnet-4-6';
 const BLOGGER_SCOPE = 'https://www.googleapis.com/auth/blogger';
 
 // ───────────────────────────────────────────────
@@ -773,6 +773,21 @@ function showSaveTime(ts) {
   const wrap = document.getElementById('save-time');
   document.getElementById('save-time-value').textContent = ts;
   wrap.style.display = 'block';
+}
+
+function loadDraft() {
+  const html = localStorage.getItem('ec_draft_html');
+  const title = localStorage.getItem('ec_draft_title');
+  if (html && title) {
+    gGeneratedHtml = html;
+    gGeneratedTitle = title;
+    document.getElementById('preview-content').innerHTML = gGeneratedHtml;
+    document.getElementById('preview-wrap').classList.add('show');
+    document.getElementById('steps-wrap').style.display = 'block';
+    setStep(1, 'done', '복원됨', '이전 작업 내역 불러옴');
+    setStep(2, 'done', '복원됨', '이전 작업 내역 불러옴');
+    setStep(3, '', '대기', 'Blogger 포스팅 버튼을 눌러주세요');
+  }
 }
 
 // 입력값 변경 시 해당 필드의 "저장됨" 뱃지 숨김 (미저장 상태)
@@ -1131,6 +1146,10 @@ async function startGeneration() {
     gGeneratedHtml   = refined + embed;
     gGeneratedTitle  = extractTitle(refined);
 
+    // 초안 자동 저장 (재로그인 시 증발 방지)
+    localStorage.setItem('ec_draft_html', gGeneratedHtml);
+    localStorage.setItem('ec_draft_title', gGeneratedTitle);
+
     setStep(2, 'done', '완료', step2Note);
 
     // 미리보기 표시
@@ -1208,6 +1227,10 @@ async function postToBlogger() {
 
     const post = await res.json();
     setStep(3, 'done', '발행 완료!', post.url || '');
+
+    // 포스팅 완료 후 초안 정리
+    localStorage.removeItem('ec_draft_html');
+    localStorage.removeItem('ec_draft_title');
 
     document.getElementById('result-url').href        = post.url || '#';
     document.getElementById('result-url').textContent = post.url ? '블로그에서 확인하기 →' : '확인하기 →';
@@ -1321,6 +1344,7 @@ async function copyOauthUrl(el) {
 // ───────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
   loadSettings();
+  loadDraft();
   handleOAuthCallback();
   if (!gAccessToken && loadSavedToken()) {
     updateAuthBadge(true);
