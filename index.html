@@ -735,6 +735,7 @@ const OAUTH_SCOPES = 'https://www.googleapis.com/auth/blogger https://www.google
 let gAccessToken   = null;   // Google OAuth token
 let gGeneratedHtml = '';
 let gGeneratedTitle = '';
+let gYtNextPageToken = null; // 유튜브 페이징 토큰
 
 // ───────────────────────────────────────────────
 // 탭 전환
@@ -1313,6 +1314,7 @@ function openMyVideosModal() {
   }
   document.getElementById('yt-modal').style.display = 'flex';
   document.getElementById('yt-modal-list').innerHTML = '<div style="text-align:center; padding:30px; color:var(--text-2);">로딩 중... ⏳</div>';
+  gYtNextPageToken = null;
   fetchMyYouTubeVideos();
 }
 
@@ -1320,7 +1322,7 @@ function closeMyVideosModal() {
   document.getElementById('yt-modal').style.display = 'none';
 }
 
-async function fetchMyYouTubeVideos() {
+async function fetchMyYouTubeVideos(isLoadMore = false) {
   try {
     const ytKey = get('yt_key');
     const ytChannel = get('yt_channel');
@@ -1328,11 +1330,21 @@ async function fetchMyYouTubeVideos() {
     let apiUrl = '';
     let options = {};
 
+    const existingBtn = document.getElementById('yt-load-more-btn');
+    if (existingBtn) {
+      existingBtn.textContent = '불러오는 중... ⏳';
+      existingBtn.disabled = true;
+    }
+
     if (ytKey && ytChannel) {
-      apiUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=${ytChannel}&type=video&maxResults=15&order=date&key=${ytKey}`;
+      apiUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=${ytChannel}&type=video&maxResults=50&order=date&key=${ytKey}`;
     } else {
-      apiUrl = 'https://www.googleapis.com/youtube/v3/search?part=snippet&forMine=true&type=video&maxResults=15&order=date';
+      apiUrl = 'https://www.googleapis.com/youtube/v3/search?part=snippet&forMine=true&type=video&maxResults=50&order=date';
       options = { headers: { 'Authorization': 'Bearer ' + gAccessToken } };
+    }
+
+    if (isLoadMore && gYtNextPageToken) {
+      apiUrl += `&pageToken=${gYtNextPageToken}`;
     }
 
     const res = await fetch(apiUrl, options);
@@ -1346,7 +1358,7 @@ async function fetchMyYouTubeVideos() {
     const data = await res.json();
     const items = data.items || [];
     
-    if (items.length === 0) {
+    if (!isLoadMore && items.length === 0) {
       document.getElementById('yt-modal-list').innerHTML = '<div style="text-align:center; padding:30px; color:var(--text-2);">최근 업로드한 영상이 없어요.</div>';
       return;
     }
@@ -1354,6 +1366,7 @@ async function fetchMyYouTubeVideos() {
     let html = '';
     items.forEach(item => {
       const vid = item.id.videoId;
+      if (!vid) return; // 채널이나 재생목록이 섞여 나올 경우 방지
       const title = item.snippet.title;
       const thumb = item.snippet.thumbnails?.medium?.url || item.snippet.thumbnails?.default?.url || '';
       const date = new Date(item.snippet.publishedAt).toLocaleDateString('ko-KR');
@@ -1371,10 +1384,33 @@ async function fetchMyYouTubeVideos() {
         </div>
       `;
     });
-    document.getElementById('yt-modal-list').innerHTML = html;
+    
+    if (existingBtn) existingBtn.remove();
+
+    const listEl = document.getElementById('yt-modal-list');
+    if (isLoadMore) {
+      listEl.insertAdjacentHTML('beforeend', html);
+    } else {
+      listEl.innerHTML = html;
+    }
+
+    gYtNextPageToken = data.nextPageToken || null;
+    if (gYtNextPageToken) {
+      listEl.insertAdjacentHTML('beforeend', `
+        <button id="yt-load-more-btn" class="btn btn-outline" style="width:100%; margin-top:10px; padding:12px;" onclick="fetchMyYouTubeVideos(true)">
+          더 보기 ⬇️
+        </button>
+      `);
+    }
     
   } catch (err) {
-    document.getElementById('yt-modal-list').innerHTML = `<div style="text-align:center; padding:30px; color:var(--red); font-size:13px; line-height:1.6;">❌<br>${err.message}</div>`;
+    if (isLoadMore) {
+      showToast('❌ 영상을 더 불러오는데 실패했어요.');
+      const btn = document.getElementById('yt-load-more-btn');
+      if (btn) { btn.textContent = '더 보기 ⬇️'; btn.disabled = false; }
+    } else {
+      document.getElementById('yt-modal-list').innerHTML = `<div style="text-align:center; padding:30px; color:var(--red); font-size:13px; line-height:1.6;">❌<br>${err.message}</div>`;
+    }
   }
 }
 
