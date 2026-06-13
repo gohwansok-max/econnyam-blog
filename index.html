@@ -1186,6 +1186,9 @@ async function startGeneration() {
       refined = await callGemini(stylePrompt(draft), STYLE_SYSTEM);
     }
 
+    // 마크다운 코드 블록(```html, ```) 찌꺼기 자동 제거
+    refined = refined.replace(/```html/gi, '').replace(/```/g, '').trim();
+
     // 임베드 삽입
     const embed      = buildEmbed(videoId);
     gGeneratedHtml   = refined + embed;
