@@ -500,6 +500,7 @@ body {
              placeholder="https://www.youtube.com/watch?v=..."
              onkeydown="if(event.key==='Enter')startGeneration()" />
       <button class="btn btn-outline" onclick="pasteUrl()">📋 붙여넣기</button>
+      <button class="btn btn-outline" onclick="openMyVideosModal()" title="내 유튜브 채널 영상 목록">📺 내 영상</button>
     </div>
   </div>
 
@@ -669,6 +670,9 @@ body {
     <div class="notice notice-info" style="margin-top:12px;">
       ℹ️ 보안상 구글 로그인은 1시간 동안 유지됩니다. (새로고침해도 작성 중인 글과 설정은 안전하게 자동 복구돼요!)
     </div>
+    <div class="notice notice-warn" style="margin-top:8px;">
+      ※ '내 영상' 불러오기 기능을 쓰려면 Google Cloud Console에서 <strong>YouTube Data API v3</strong>를 '사용' 설정해야 해요.
+    </div>
   </div>
 
   <!-- 저장 버튼 영역 -->
@@ -682,6 +686,19 @@ body {
 </div>
 </div><!-- /pane-settings -->
 
+<!-- ════════════════ 유튜브 영상 선택 모달 ════════════════ -->
+<div id="yt-modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.7); z-index:999; align-items:center; justify-content:center;">
+  <div style="background:var(--surf1); border:1px solid var(--border); border-radius:var(--radius); padding:24px; width:90%; max-width:500px; max-height:80vh; display:flex; flex-direction:column; box-shadow:0 10px 40px rgba(0,0,0,0.6);">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <h3 style="font-size:16px; margin:0; color:var(--text); display:flex; gap:8px; align-items:center;">📺 내 유튜브 영상 목록</h3>
+      <button onclick="closeMyVideosModal()" style="background:none;border:none;color:var(--text-3);font-size:26px;cursor:pointer;line-height:1;">&times;</button>
+    </div>
+    <div id="yt-modal-list" style="overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:10px;">
+      <!-- 영상 목록 렌더링 영역 -->
+    </div>
+  </div>
+</div>
+
 <!-- ════════════════ JAVASCRIPT ════════════════ -->
 <script>
 'use strict';
@@ -691,7 +708,7 @@ body {
 // ───────────────────────────────────────────────
 const GEMINI_MODEL = 'gemini-3.5-flash';
 const CLAUDE_MODEL = 'claude-sonnet-4-6';
-const BLOGGER_SCOPE = 'https://www.googleapis.com/auth/blogger';
+const OAUTH_SCOPES = 'https://www.googleapis.com/auth/blogger https://www.googleapis.com/auth/youtube.readonly';
 
 // ───────────────────────────────────────────────
 // 상태
@@ -977,10 +994,14 @@ async function callClaude(systemPrompt, userPrompt) {
 // 유튜브 임베드 코드
 // ───────────────────────────────────────────────
 function buildEmbed(videoId) {
+  const ytUrl = `https://youtu.be/${videoId}`;
   return `
 <hr style="margin:44px 0 28px;border:none;border-top:1px solid #e8e8e8;">
-<p style="text-align:center;font-size:13px;color:#aaa;margin-bottom:16px;">
+<p style="text-align:center;font-size:14px;font-weight:700;color:#2C1505;margin-bottom:8px;">
   📺 원본 영상도 함께 보세요!
+</p>
+<p style="text-align:center;margin-bottom:16px;">
+  🔗 <a href="${ytUrl}" target="_blank" style="color:#2563eb;text-decoration:underline;">${ytUrl}</a>
 </p>
 <div style="text-align:center;margin-bottom:16px;">
   <iframe width="560" height="315"
@@ -1258,6 +1279,76 @@ async function copyHtml() {
 }
 
 // ───────────────────────────────────────────────
+// 내 유튜브 영상 불러오기 모달
+// ───────────────────────────────────────────────
+function openMyVideosModal() {
+  if (!gAccessToken) {
+    showToast('⚠️ 먼저 ⚙️ 설정 탭에서 Google 로그인을 해주세요!');
+    return;
+  }
+  document.getElementById('yt-modal').style.display = 'flex';
+  document.getElementById('yt-modal-list').innerHTML = '<div style="text-align:center; padding:30px; color:var(--text-2);">로딩 중... ⏳</div>';
+  fetchMyYouTubeVideos();
+}
+
+function closeMyVideosModal() {
+  document.getElementById('yt-modal').style.display = 'none';
+}
+
+async function fetchMyYouTubeVideos() {
+  try {
+    const res = await fetch('https://www.googleapis.com/youtube/v3/search?part=snippet&forMine=true&type=video&maxResults=15&order=date', {
+      headers: { 'Authorization': 'Bearer ' + gAccessToken }
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      if (res.status === 401 || res.status === 403) {
+        throw new Error('권한이 없거나 만료됐어요. ⚙️ 설정 탭에서 [🔑 Google 로그인]을 다시 해주세요! (또는 YouTube Data API v3 활성화 필요)');
+      }
+      throw new Error(err.error?.message || '영상 목록을 가져올 수 없어요. (HTTP ' + res.status + ')');
+    }
+    const data = await res.json();
+    const items = data.items || [];
+    
+    if (items.length === 0) {
+      document.getElementById('yt-modal-list').innerHTML = '<div style="text-align:center; padding:30px; color:var(--text-2);">최근 업로드한 영상이 없어요.</div>';
+      return;
+    }
+
+    let html = '';
+    items.forEach(item => {
+      const vid = item.id.videoId;
+      const title = item.snippet.title;
+      const thumb = item.snippet.thumbnails?.medium?.url || item.snippet.thumbnails?.default?.url || '';
+      const date = new Date(item.snippet.publishedAt).toLocaleDateString('ko-KR');
+      
+      html += `
+        <div style="display:flex; gap:14px; padding:12px; background:var(--surf2); border:1px solid var(--border); border-radius:10px; cursor:pointer; align-items:center; transition:all .2s;"
+             onclick="selectYoutubeVideo('${vid}')"
+             onmouseover="this.style.borderColor='var(--gold)'; this.style.background='var(--surf3)';"
+             onmouseout="this.style.borderColor='var(--border)'; this.style.background='var(--surf2)';">
+          <img src="${thumb}" style="width:120px; height:68px; object-fit:cover; border-radius:6px; box-shadow:0 2px 6px rgba(0,0,0,.3);">
+          <div style="flex:1; overflow:hidden;">
+            <div style="font-size:14px; font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:6px;">${title}</div>
+            <div style="font-size:12px; color:var(--text-2);">📅 ${date}</div>
+          </div>
+        </div>
+      `;
+    });
+    document.getElementById('yt-modal-list').innerHTML = html;
+    
+  } catch (err) {
+    document.getElementById('yt-modal-list').innerHTML = `<div style="text-align:center; padding:30px; color:var(--red); font-size:13px; line-height:1.6;">❌<br>${err.message}</div>`;
+  }
+}
+
+function selectYoutubeVideo(vid) {
+  document.getElementById('yt-url').value = 'https://youtu.be/' + vid;
+  closeMyVideosModal();
+  showToast('✅ 영상이 선택되었어요!');
+}
+
+// ───────────────────────────────────────────────
 // Google OAuth (Implicit Grant Flow)
 // ───────────────────────────────────────────────
 function startGoogleAuth() {
@@ -1277,7 +1368,7 @@ function startGoogleAuth() {
     client_id:     clientId,
     redirect_uri:  redirectUri,
     response_type: 'token',
-    scope:         BLOGGER_SCOPE,
+    scope:         OAUTH_SCOPES,
     prompt:        'select_account',
   });
 
