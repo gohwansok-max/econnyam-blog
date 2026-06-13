@@ -675,6 +675,25 @@ body {
     </div>
   </div>
 
+  <!-- YouTube API (선택) -->
+  <div class="card">
+    <div class="card-title">YouTube Data API (선택사항)</div>
+    <div class="field">
+      <label>유튜브 API 키 <span id="badge-yt-key" class="label-saved">저장됨</span></label>
+      <input type="password" id="s-yt-key" placeholder="AIzaSy..." autocomplete="off" oninput="markDirty('yt-key')" onchange="saveSettings()" />
+      <div class="hint">발급받으신 YouTube Data API v3 키를 입력하세요.</div>
+    </div>
+    <div class="field">
+      <label>내 채널 ID <span id="badge-yt-channel" class="label-saved">저장됨</span></label>
+      <input type="text" id="s-yt-channel" placeholder="UC..." oninput="markDirty('yt-channel')" onchange="saveSettings()" />
+      <div class="hint">유튜브 로그인 → 우측 상단 프로필 클릭 → <strong>설정</strong> → <strong>고급 설정</strong> → <strong>채널 ID 복사</strong></div>
+    </div>
+    <div class="notice notice-info">
+      ℹ️ API 키와 채널 ID를 입력하면 1시간 로그인 제한 없이 언제든 내 영상을 불러올 수 있어요!<br>
+      (빈칸으로 두면 기존의 Google 로그인 연동 방식으로 작동해요)
+    </div>
+  </div>
+
   <!-- 저장 버튼 영역 -->
   <div class="save-area">
     <div id="save-time" class="save-time" style="display:none;">
@@ -737,6 +756,8 @@ const FIELD_MAP = [
   { key: 'claude',    inputId: 's-claude',    badgeId: 'badge-claude'    },
   { key: 'client_id', inputId: 's-client-id', badgeId: 'badge-client-id' },
   { key: 'blog_id',   inputId: 's-blog-id',   badgeId: 'badge-blog-id'   },
+  { key: 'yt_key',    inputId: 's-yt-key',    badgeId: 'badge-yt-key'    },
+  { key: 'yt_channel',inputId: 's-yt-channel',badgeId: 'badge-yt-channel'}
 ];
 
 function saveSettings() {
@@ -810,7 +831,8 @@ function loadDraft() {
 // 입력값 변경 시 해당 필드의 "저장됨" 뱃지 숨김 (미저장 상태)
 function markDirty(fieldName) {
   const map = { gemini:'badge-gemini', claude:'badge-claude',
-                'client-id':'badge-client-id', 'blog-id':'badge-blog-id' };
+                'client-id':'badge-client-id', 'blog-id':'badge-blog-id',
+                'yt-key':'badge-yt-key', 'yt-channel':'badge-yt-channel' };
   const badgeId = map[fieldName];
   if (!badgeId) return;
   const badge  = document.getElementById(badgeId);
@@ -819,7 +841,8 @@ function markDirty(fieldName) {
 
   // localStorage 값과 현재 값이 다르면 뱃지 숨김
   const lsKey  = { gemini:'ec_gemini', claude:'ec_claude',
-                   'client-id':'ec_client_id', 'blog-id':'ec_blog_id' }[fieldName];
+                   'client-id':'ec_client_id', 'blog-id':'ec_blog_id',
+                   'yt-key':'ec_yt_key', 'yt-channel':'ec_yt_channel' }[fieldName];
   const saved  = localStorage.getItem(lsKey) || '';
   badge.classList.toggle('show', input.value.trim() === saved && saved.length > 0);
 }
@@ -1282,8 +1305,10 @@ async function copyHtml() {
 // 내 유튜브 영상 불러오기 모달
 // ───────────────────────────────────────────────
 function openMyVideosModal() {
-  if (!gAccessToken) {
-    showToast('⚠️ 먼저 ⚙️ 설정 탭에서 Google 로그인을 해주세요!');
+  const ytKey = get('yt_key');
+  const ytChannel = get('yt_channel');
+  if (!gAccessToken && !(ytKey && ytChannel)) {
+    showToast('⚠️ ⚙️ 설정 탭에서 Google 로그인을 하거나 유튜브 API 키를 입력해주세요!');
     return;
   }
   document.getElementById('yt-modal').style.display = 'flex';
@@ -1297,13 +1322,24 @@ function closeMyVideosModal() {
 
 async function fetchMyYouTubeVideos() {
   try {
-    const res = await fetch('https://www.googleapis.com/youtube/v3/search?part=snippet&forMine=true&type=video&maxResults=15&order=date', {
-      headers: { 'Authorization': 'Bearer ' + gAccessToken }
-    });
+    const ytKey = get('yt_key');
+    const ytChannel = get('yt_channel');
+
+    let apiUrl = '';
+    let options = {};
+
+    if (ytKey && ytChannel) {
+      apiUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=${ytChannel}&type=video&maxResults=15&order=date&key=${ytKey}`;
+    } else {
+      apiUrl = 'https://www.googleapis.com/youtube/v3/search?part=snippet&forMine=true&type=video&maxResults=15&order=date';
+      options = { headers: { 'Authorization': 'Bearer ' + gAccessToken } };
+    }
+
+    const res = await fetch(apiUrl, options);
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       if (res.status === 401 || res.status === 403) {
-        throw new Error('권한이 없거나 만료됐어요. ⚙️ 설정 탭에서 [🔑 Google 로그인]을 다시 해주세요! (또는 YouTube Data API v3 활성화 필요)');
+        throw new Error('권한이 없거나 만료됐어요. ⚙️ 설정 탭에서 [🔑 Google 로그인]을 다시 하거나 유튜브 API 설정을 확인하세요!');
       }
       throw new Error(err.error?.message || '영상 목록을 가져올 수 없어요. (HTTP ' + res.status + ')');
     }
