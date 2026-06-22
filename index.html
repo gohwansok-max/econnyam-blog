@@ -470,7 +470,7 @@ body {
   <strong style="color:#fff;">해결 방법:</strong>
   폴더에서 <code style="background:rgba(0,0,0,.3);padding:1px 6px;border-radius:4px;">server.py</code> 를 실행하거나,
   터미널에서 <code style="background:rgba(0,0,0,.3);padding:1px 6px;border-radius:4px;">python server.py</code> 를 입력하세요.<br>
-  <span style="color:#fbbf24;">그러면 브라우저가 자동으로 <strong>http://localhost:8000/auto_blog.html</strong> 로 열려요.</span>
+  <span style="color:#fbbf24;">그러면 브라우저가 자동으로 <strong>http://localhost:8000/</strong> 로 열려요.</span>
 </div>
 
 <!-- ════════════════ HEADER ════════════════ -->
@@ -578,7 +578,7 @@ body {
     <div class="card-title">Gemini API</div>
     <div class="field">
       <label>API 키 <span id="badge-gemini" class="label-saved">저장됨</span></label>
-      <input type="password" id="s-gemini" placeholder="AIzaSy..." autocomplete="off" oninput="markDirty('gemini')" onchange="saveSettings()" />
+      <input type="password" id="s-gemini" placeholder="AIzaSy..." autocomplete="off" oninput="saveSettings(true)" onchange="saveSettings()" />
       <div class="hint">Google AI Studio → API 키 만들기</div>
     </div>
   </div>
@@ -588,7 +588,7 @@ body {
     <div class="card-title">Claude API (Anthropic)</div>
     <div class="field">
       <label>API 키 <span id="badge-claude" class="label-saved">저장됨</span></label>
-      <input type="password" id="s-claude" placeholder="sk-ant-..." autocomplete="off" oninput="markDirty('claude')" onchange="saveSettings()" />
+      <input type="password" id="s-claude" placeholder="sk-ant-..." autocomplete="off" oninput="saveSettings(true)" onchange="saveSettings()" />
       <div class="hint">console.anthropic.com → API Keys</div>
     </div>
     <div class="notice notice-warn">
@@ -602,7 +602,7 @@ body {
     <div class="card-title">Blogger API (Google OAuth)</div>
     <div class="field">
       <label>Google OAuth 2.0 클라이언트 ID <span id="badge-client-id" class="label-saved">저장됨</span></label>
-      <input type="text" id="s-client-id" placeholder="123456789.apps.googleusercontent.com" oninput="markDirty('client-id')" onchange="saveSettings()" />
+      <input type="text" id="s-client-id" placeholder="123456789.apps.googleusercontent.com" oninput="saveSettings(true)" onchange="saveSettings()" />
       <div class="hint">
         Google Cloud Console → API 및 서비스 → 사용자 인증 정보에서
         <strong>웹 애플리케이션</strong> 유형으로 OAuth 클라이언트 ID를 만들어 주세요.
@@ -656,7 +656,7 @@ body {
     </div>
     <div class="field">
       <label>블로그 ID <span id="badge-blog-id" class="label-saved">저장됨</span></label>
-      <input type="text" id="s-blog-id" placeholder="1234567890123456789" oninput="markDirty('blog-id')" onchange="saveSettings()" />
+      <input type="text" id="s-blog-id" placeholder="1234567890123456789" oninput="saveSettings(true)" onchange="saveSettings()" />
       <div class="hint">Blogger 관리 → 설정 → 기본 → 블로그 ID (URL에서도 확인 가능)</div>
     </div>
 
@@ -680,12 +680,12 @@ body {
     <div class="card-title">YouTube Data API (선택사항)</div>
     <div class="field">
       <label>유튜브 API 키 <span id="badge-yt-key" class="label-saved">저장됨</span></label>
-      <input type="password" id="s-yt-key" placeholder="AIzaSy..." autocomplete="off" oninput="markDirty('yt-key')" onchange="saveSettings()" />
+      <input type="password" id="s-yt-key" placeholder="AIzaSy..." autocomplete="off" oninput="saveSettings(true)" onchange="saveSettings()" />
       <div class="hint">발급받으신 YouTube Data API v3 키를 입력하세요.</div>
     </div>
     <div class="field">
       <label>내 채널 ID <span id="badge-yt-channel" class="label-saved">저장됨</span></label>
-      <input type="text" id="s-yt-channel" placeholder="UC..." oninput="markDirty('yt-channel')" onchange="saveSettings()" />
+      <input type="text" id="s-yt-channel" placeholder="UC..." oninput="saveSettings(true)" onchange="saveSettings()" />
       <div class="hint">유튜브 로그인 → 우측 상단 프로필 클릭 → <strong>설정</strong> → <strong>고급 설정</strong> → <strong>채널 ID 복사</strong></div>
     </div>
     <div class="notice notice-info">
@@ -699,6 +699,9 @@ body {
     <div id="save-time" class="save-time" style="display:none;">
       마지막 저장: <strong id="save-time-value"></strong>
     </div>
+    <button class="btn btn-outline" id="export-btn" onclick="exportSettings()">📤 설정 백업</button>
+    <button class="btn btn-outline" id="import-btn" onclick="document.getElementById('import-file').click()">📥 설정 복원</button>
+    <input type="file" id="import-file" style="display:none;" accept=".json" onchange="importSettings(this)" />
     <button class="btn btn-green" id="save-btn" onclick="saveSettings()">💾 설정 저장</button>
   </div>
 
@@ -761,7 +764,7 @@ const FIELD_MAP = [
   { key: 'yt_channel',inputId: 's-yt-channel',badgeId: 'badge-yt-channel'}
 ];
 
-function saveSettings() {
+function saveSettings(silent = false) {
   FIELD_MAP.forEach(({ key, inputId, badgeId }) => {
     const val = document.getElementById(inputId).value.trim();
     localStorage.setItem('ec_' + key, val);
@@ -777,19 +780,44 @@ function saveSettings() {
   localStorage.setItem('ec_saved_at', ts);
   showSaveTime(ts);
 
-  // 버튼 상태 전환: "✅ 저장 완료!" → 1.5초 후 원래대로
-  const btn = document.getElementById('save-btn');
-  btn.textContent = '✅ 저장 완료!';
-  btn.style.background = 'var(--green)';
-  btn.disabled = true;
-  setTimeout(() => {
-    btn.textContent = '💾 설정 저장';
-    btn.style.background = '';
-    btn.disabled = false;
-  }, 1500);
+  // 로컬 서버 config.json 저장 시도
+  saveToServerConfig();
+
+  if (!silent) {
+    // 버튼 상태 전환: "✅ 저장 완료!" → 1.5초 후 원래대로
+    const btn = document.getElementById('save-btn');
+    if (btn) {
+      btn.textContent = '✅ 저장 완료!';
+      btn.style.background = 'var(--green)';
+      btn.disabled = true;
+      setTimeout(() => {
+        btn.textContent = '💾 설정 저장';
+        btn.style.background = '';
+        btn.disabled = false;
+      }, 1500);
+    }
+  }
 }
 
-function loadSettings() {
+async function saveToServerConfig() {
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    try {
+      const config = {};
+      FIELD_MAP.forEach(({ key, inputId }) => {
+        config[key] = document.getElementById(inputId).value.trim();
+      });
+      await fetch('/api/save_config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config)
+      });
+    } catch (e) {
+      console.warn('Failed to save configuration to local server:', e);
+    }
+  }
+}
+
+async function loadSettings() {
   let hasAny = false;
   FIELD_MAP.forEach(({ key, inputId, badgeId }) => {
     const val = localStorage.getItem('ec_' + key) || '';
@@ -797,6 +825,47 @@ function loadSettings() {
     const badge = document.getElementById(badgeId);
     if (badge && val.length > 0) { badge.classList.add('show'); hasAny = true; }
   });
+
+  // 로컬 서버의 config.json에서 설정 읽어오기
+  try {
+    const res = await fetch('config.json');
+    if (res.ok) {
+      const config = await res.json();
+      FIELD_MAP.forEach(({ key, inputId, badgeId }) => {
+        const val = config[key];
+        if (val !== undefined && val !== null) {
+          document.getElementById(inputId).value = val;
+          localStorage.setItem('ec_' + key, val);
+          const badge = document.getElementById(badgeId);
+          if (badge && val.length > 0) { badge.classList.add('show'); hasAny = true; }
+        }
+      });
+    }
+  } catch (e) {
+    console.log('config.json 없음 또는 불러오기 실패:', e);
+  }
+
+  // Google OAuth 클라이언트 ID 자동 로드 (credentials_web.json 기준)
+  const clientIdInput = document.getElementById('s-client-id');
+  if (!clientIdInput.value.trim()) {
+    try {
+      const res = await fetch('credentials_web.json');
+      if (res.ok) {
+        const creds = await res.json();
+        const cid = creds.web?.client_id;
+        if (cid) {
+          clientIdInput.value = cid;
+          localStorage.setItem('ec_client_id', cid);
+          const badge = document.getElementById('badge-client-id');
+          if (badge) badge.classList.add('show');
+          hasAny = true;
+          saveToServerConfig();
+        }
+      }
+    } catch (e) {
+      console.log('credentials_web.json 없음 또는 불러오기 실패:', e);
+    }
+  }
 
   // 저장 시각 복원
   const savedAt = localStorage.getItem('ec_saved_at');
@@ -829,23 +898,57 @@ function loadDraft() {
   }
 }
 
-// 입력값 변경 시 해당 필드의 "저장됨" 뱃지 숨김 (미저장 상태)
-function markDirty(fieldName) {
-  const map = { gemini:'badge-gemini', claude:'badge-claude',
-                'client-id':'badge-client-id', 'blog-id':'badge-blog-id',
-                'yt-key':'badge-yt-key', 'yt-channel':'badge-yt-channel' };
-  const badgeId = map[fieldName];
-  if (!badgeId) return;
-  const badge  = document.getElementById(badgeId);
-  const input  = badge?.closest('.field')?.querySelector('input');
-  if (!badge || !input) return;
+function exportSettings() {
+  const config = {};
+  FIELD_MAP.forEach(({ key, inputId }) => {
+    config[key] = document.getElementById(inputId).value.trim();
+  });
+  
+  const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'econnyam_config.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('💾 설정 파일이 다운로드되었어요!');
+}
 
-  // localStorage 값과 현재 값이 다르면 뱃지 숨김
-  const lsKey  = { gemini:'ec_gemini', claude:'ec_claude',
-                   'client-id':'ec_client_id', 'blog-id':'ec_blog_id',
-                   'yt-key':'ec_yt_key', 'yt-channel':'ec_yt_channel' }[fieldName];
-  const saved  = localStorage.getItem(lsKey) || '';
-  badge.classList.toggle('show', input.value.trim() === saved && saved.length > 0);
+function importSettings(input) {
+  const file = input.files[0];
+  if (!file) return;
+  
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const config = JSON.parse(e.target.result);
+      let loadedCount = 0;
+      
+      FIELD_MAP.forEach(({ key, inputId, badgeId }) => {
+        const val = config[key];
+        if (val !== undefined && val !== null) {
+          document.getElementById(inputId).value = val;
+          localStorage.setItem('ec_' + key, val);
+          const badge = document.getElementById(badgeId);
+          if (badge) badge.classList.toggle('show', val.length > 0);
+          loadedCount++;
+        }
+      });
+      
+      if (loadedCount > 0) {
+        saveSettings(true);
+        showToast('✅ 설정이 성공적으로 복원되었어요!');
+      } else {
+        showToast('⚠️ 유효한 설정 값이 없어요.');
+      }
+    } catch (err) {
+      showToast('❌ 파일 읽기 실패: 올바른 JSON 형식이 아닙니다.');
+    }
+  };
+  reader.readAsText(file);
+  input.value = '';
 }
 
 function get(key) { return localStorage.getItem('ec_' + key) || ''; }
@@ -1529,7 +1632,7 @@ window.addEventListener('DOMContentLoaded', () => {
   const originEl  = document.getElementById('oauth-origin');
   const redirectEl = document.getElementById('oauth-redirect');
   if (originEl)  originEl.textContent  = (window.location.protocol === 'file:') ? 'http://localhost:8000' : origin;
-  if (redirectEl) redirectEl.textContent = (window.location.protocol === 'file:') ? 'http://localhost:8000/auto_blog.html' : fullUrl;
+  if (redirectEl) redirectEl.textContent = (window.location.protocol === 'file:') ? 'http://localhost:8000/' : fullUrl;
 });
 </script>
 </body>
