@@ -229,6 +229,19 @@ body {
   transform: translateY(-1px);
 }
 
+/* 네이버 그린 */
+.btn-naver {
+  background: linear-gradient(135deg, #03C75A, #02b350);
+  border-color: #03C75A;
+  color: #fff;
+  box-shadow: 0 2px 12px rgba(3,199,90,.3);
+}
+.btn-naver:hover:not(:disabled) {
+  background: linear-gradient(135deg, #02b350, #05e06a);
+  box-shadow: 0 4px 20px rgba(3,199,90,.45);
+  transform: translateY(-1px);
+}
+
 /* ── URL Row ── */
 .url-row { display: flex; gap: 10px; }
 .url-row input { flex: 1; min-width: 0; }
@@ -545,6 +558,7 @@ body {
       <div class="preview-toolbar-title">📄 완성된 블로그 글 미리보기</div>
       <div class="preview-toolbar-btns">
         <button class="btn btn-outline" onclick="copyHtml()">📋 HTML 복사</button>
+        <button class="btn btn-naver"   id="naver-bait-btn" onclick="copyNaverBait()" disabled title="Blogger 포스팅 완료 후 활성화">🟢 네이버 미끼글 복사</button>
         <button class="btn btn-blue"    id="post-btn" onclick="postToBlogger()">📤 Blogger 포스팅</button>
       </div>
     </div>
@@ -739,6 +753,8 @@ let gAccessToken   = null;   // Google OAuth token
 let gGeneratedHtml = '';
 let gGeneratedTitle = '';
 let gYtNextPageToken = null; // 유튜브 페이징 토큰
+let gCurrentVideoId  = null; // 현재 처리 중인 유튜브 영상 ID
+let gPublishedUrl    = null; // Blogger 발행 완료 URL
 
 // ───────────────────────────────────────────────
 // 탭 전환
@@ -1121,25 +1137,7 @@ async function callClaude(systemPrompt, userPrompt) {
 // 유튜브 임베드 코드
 // ───────────────────────────────────────────────
 function buildEmbed(videoId) {
-  const ytUrl = `https://youtu.be/${videoId}`;
-  return `
-<hr style="margin:44px 0 28px;border:none;border-top:1px solid #e8e8e8;">
-<p style="text-align:center;font-size:14px;font-weight:700;color:#2C1505;margin-bottom:8px;">
-  📺 원본 영상도 함께 보세요!
-</p>
-<div style="text-align:center;margin-bottom:16px;font-size:15px;">
-  🔗 ${ytUrl}
-</div>
-<div style="text-align:center;margin-bottom:16px;">
-  <iframe width="560" height="315"
-    src="https://www.youtube.com/embed/${videoId}"
-    title="YouTube video player"
-    frameborder="0"
-    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-    allowfullscreen
-    style="max-width:100%;border-radius:8px;">
-  </iframe>
-</div>`;
+  return `<hr><div style="text-align:center; margin-top:30px;"><iframe width="560" height="315" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen></iframe></div>`;
 }
 
 // ───────────────────────────────────────────────
@@ -1208,16 +1206,26 @@ const STYLE_SYSTEM = `
 3. 독자에게 직접 말 걸기 — "여러분", "우리 독자님들" 등 활용
 4. 비유나 일상 사례를 들어 친근하게 설명
 5. 문단 사이 적절한 여백
-6. 제목은 호기심을 자극하는 형태
-7. HTML 형식으로 출력 (h2, h3, p, strong, ul/li 태그 활용)
-8. 이모지를 적절히 활용해 생동감 추가
+6. 이모지를 적절히 활용해 생동감 추가
 
-반드시 HTML 형식으로만 출력하세요. 마크다운 사용 금지.
+[SEO 제목 규칙 — 반드시 준수]
+- 블로그 제목은 유튜브 영상 제목을 그대로 쓰지 말 것
+- 구글 검색 로봇이 잘 인지하도록, 독자들이 실제로 많이 검색할 법한 핵심 키워드(문어체)를 조합해 블로그 전용 제목을 새로 작성할 것
+- 예) 유튜브 제목 "지금 당장 팔아야 할까?" → 블로그 제목 "2024 하반기 주식 매도 타이밍 전략 총정리 | 개인투자자 필독"
+- 제목은 <h1> 태그로 감쌀 것
+
+[HTML 구조 규칙 — 반드시 준수]
+- 전체 출력은 HTML 형식으로만 할 것. 마크다운 사용 금지.
+- 주요 대단락(섹션)의 소제목은 반드시 <h2> 태그로 감쌀 것
+- 대단락 안의 세부 소제목은 반드시 <h3> 태그로 감쌀 것
+- 일반 본문 단락은 <p> 태그, 목록은 <ul>/<li> 태그를 사용할 것
+- <strong> 태그로 핵심 키워드를 강조할 것
 `;
 
 function stylePrompt(draft) {
   return `다음 블로그 초안을 '경제 냠냠' 스타일로 다듬어주세요.
-HTML 형식으로 완성된 블로그 본문만 출력하세요 (제목 포함, 유튜브 embed 코드 제외).
+HTML 형식으로 완성된 블로그 본문만 출력하세요 (유튜브 embed 코드 제외).
+반드시 SEO 블로그 전용 제목(<h1>)과 <h2>/<h3> 소제목 구조를 지켜주세요.
 
 [초안]
 ${draft}`;
@@ -1241,8 +1249,10 @@ async function startGeneration() {
   document.getElementById('steps-wrap').style.display = 'block';
   document.getElementById('preview-wrap').classList.remove('show');
   document.getElementById('post-result').classList.remove('show');
-  gGeneratedHtml = '';
+  gGeneratedHtml  = '';
   gGeneratedTitle = '';
+  gCurrentVideoId = videoId;
+  gPublishedUrl   = null;
   setStep(1,'','대기'); setStep(2,'','대기'); setStep(3,'','대기');
 
   try {
@@ -1377,6 +1387,7 @@ async function postToBlogger() {
     }
 
     const post = await res.json();
+    gPublishedUrl = post.url || null;
     setStep(3, 'done', '발행 완료!', post.url || '');
 
     // 포스팅 완료 후 초안 정리
@@ -1386,6 +1397,9 @@ async function postToBlogger() {
     document.getElementById('result-url').href        = post.url || '#';
     document.getElementById('result-url').textContent = post.url ? '블로그에서 확인하기 →' : '확인하기 →';
     document.getElementById('post-result').classList.add('show');
+    // 네이버 미끼글 버튼 활성화
+    const baitBtn = document.getElementById('naver-bait-btn');
+    if (baitBtn) baitBtn.disabled = false;
 
   } catch (err) {
     setStep(3, 'error', '오류', err.message.slice(0, 80));
@@ -1405,6 +1419,40 @@ async function copyHtml() {
     showToast('✅ HTML이 클립보드에 복사됐어요!');
   } catch {
     showToast('복사 실패. 직접 선택해서 Ctrl+C 해주세요.');
+  }
+}
+
+// ───────────────────────────────────────────────
+// 네이버 미끼글 복사
+// ───────────────────────────────────────────────
+async function copyNaverBait() {
+  if (!gGeneratedHtml) { showToast('⚠️ 먼저 블로그 글을 생성해주세요.'); return; }
+  if (!gPublishedUrl)  { showToast('⚠️ Blogger 포스팅을 먼저 완료해야 미끼글을 복사할 수 있어요.'); return; }
+
+  // HTML → 순수 텍스트 변환
+  const tmp = document.createElement('div');
+  tmp.innerHTML = gGeneratedHtml;
+  const fullText = (tmp.textContent || tmp.innerText || '').trim();
+
+  // 상위 40% 슬라이싱 (글자 수 기준)
+  const cutIndex = Math.floor(fullText.length * 0.4);
+  const topText  = fullText.slice(0, cutIndex);
+
+  // 고정 안내 멘트 결합
+  const baitContent = `${topText}
+
+... (중략) ...
+
+📌 본문 내용이 길어 하반기 리밸런싱의 핵심 결론과 구체적인 투자 비중 전략은 공식 구글 블로그에 풀버전 영상과 함께 업로드해 두었습니다.
+
+아래 링크를 클릭하시면 로그인 없이 바로 이어서 보실 수 있습니다! 😊
+🔗 [경제 냠냠 공식 블로그에서 결론 이어서 보기] : ${gPublishedUrl}`;
+
+  try {
+    await navigator.clipboard.writeText(baitContent);
+    showToast('✅ 네이버 미끼글이 클립보드에 복사됐어요!');
+  } catch {
+    showToast('복사 실패. 브라우저 권한을 확인해주세요.');
   }
 }
 
