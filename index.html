@@ -618,7 +618,14 @@ body {
     <div class="notice notice-info">
       💡 CheapSub API로 Claude를 정가의 약 10%에 사용합니다.
       키가 없으시면 <a href="https://cheapsub.im/api/dashboard" target="_blank" rel="noopener" style="color:var(--gold);">cheapsub.im 대시보드</a>에서 발급하세요.
-      호출 실패 시 Gemini가 자동으로 대신 처리해요.
+    </div>
+    <div class="notice notice-warn">
+      ⚠️ Claude(칩섭)는 브라우저 보안(CORS) 때문에
+      <strong>GitHub 사이트에서 직접 호출이 막히는 경우</strong>가 있어요.
+      그때 2단계에 「Gemini 대체 (Failed to fetch)」가 뜹니다.<br>
+      <strong>해결:</strong> 로컬 폴더에서 <code>python server.py</code> 실행 →
+      <code>http://localhost:8000</code> 으로 열면 Claude가 정상 동작합니다.
+      (그래도 실패 시에만 Gemini가 대신 씁니다)
     </div>
   </div>
 
@@ -1278,44 +1285,79 @@ async function callGeminiVideo(videoUrl, prompt) {
 
 // ───────────────────────────────────────────────
 // Claude API 호출 (CheapSub Anthropic 호환)
-// base: https://api.cheapsub.im/v1  →  POST .../messages
+// 브라우저 → 칩섭 직접 호출은 CORS 로 Failed to fetch 나는 경우가 많음
+// → localhost server.py 의 /api/claude 프록시 우선 사용
 // ───────────────────────────────────────────────
+function isLocalStudioHost() {
+  const h = window.location.hostname;
+  return h === 'localhost' || h === '127.0.0.1';
+}
+
 async function callClaude(systemPrompt, userPrompt) {
   const key = get('claude');
   if (!key) throw new Error('Claude API 키 없음 (CheapSub csk_ 키)');
 
   const endpoint = getClaudeEndpoint();
   const model = getClaudeModel();
-  const url = endpoint + '/messages';
-
-  const headers = {
-    'Content-Type': 'application/json',
-    'x-api-key': key,
-    'anthropic-version': '2023-06-01',
-    // 공식 Anthropic CORS용. CheapSub에서도 무해하게 전달.
-    'anthropic-dangerous-direct-browser-access': 'true',
+  const body = {
+    model,
+    // 장문 블로그: 한국어 4,000~8,000자 확보용
+    max_tokens: 16000,
+    temperature: 0.7,
+    system: systemPrompt,
+    messages: [{ role: 'user', content: userPrompt }],
   };
-  // CheapSub는 Bearer 도 지원
-  if (key.startsWith('csk_')) {
-    headers['Authorization'] = 'Bearer ' + key;
+
+  let res;
+
+  // 1) 로컬 서버 프록시 (권장 — CORS 없음)
+  if (isLocalStudioHost()) {
+    try {
+      res = await fetch('/api/claude', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ api_key: key, endpoint, body }),
+      });
+    } catch (e) {
+      // 프록시 실패 시 직접 호출 시도
+      console.warn('[Claude proxy]', e.message);
+      res = null;
+    }
   }
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({
-      model,
-      // 장문 블로그: 한국어 4,000~8,000자 확보용 (짧으면 중간에 잘림)
-      max_tokens: 16000,
-      temperature: 0.7,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userPrompt }],
-    }),
-  });
+  // 2) 직접 호출 (GitHub Pages 등 — 칩섭 CORS 허용 시에만 성공)
+  if (!res) {
+    const url = endpoint + '/messages';
+    const headers = {
+      'Content-Type': 'application/json',
+      'x-api-key': key,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    };
+    if (key.startsWith('csk_')) {
+      headers['Authorization'] = 'Bearer ' + key;
+    }
+    try {
+      res = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body),
+      });
+    } catch (e) {
+      // Failed to fetch = 네트워크/CORS
+      throw new Error(
+        'Claude 연결 실패(Failed to fetch). ' +
+        '브라우저가 칩섭 API를 막아 CORS 오류일 수 있어요. ' +
+        '해결: 폴더에서 python server.py 실행 후 http://localhost:8000 으로 열어 주세요. ' +
+        '(' + (e.message || 'fetch') + ')'
+      );
+    }
+  }
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error('Claude(CheapSub) 오류: ' + (err.error?.message || res.statusText || res.status));
+    const msg = err.error?.message || err.message || res.statusText || res.status;
+    throw new Error('Claude(CheapSub) 오류: ' + msg);
   }
   const data = await res.json();
   return data.content?.[0]?.text || '';
