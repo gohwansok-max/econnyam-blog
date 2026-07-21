@@ -1726,9 +1726,10 @@ async function startGeneration() {
     } catch (claudeErr) {
       console.warn('[Claude fallback]', claudeErr.message);
       const nice = humanizeClaudeError(claudeErr.message || 'Claude 실패');
-      step2Note = 'Gemini 대체 · ' + nice;
+      // 재시도 3회 후에도 실패 → Gemini (장문 프롬프트 동일)로 완성
+      step2Note = 'Gemini 대체 · 칩섭 Claude 일시 장애 (글은 정상 작성됨)';
       setStep(2, 'active', 'Gemini 장문 작성 중...', nice);
-      showToast('⚠️ Claude 잠시 불안정 → Gemini로 이어서 작성합니다');
+      showToast('⚠️ Claude(칩섭) 불안정 → Gemini 장문으로 이어서 완성합니다');
       refined = await callGemini(stylePrompt(draft), STYLE_SYSTEM);
     }
 
