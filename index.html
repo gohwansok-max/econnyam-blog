@@ -1968,14 +1968,30 @@ function selectYoutubeVideo(vid) {
 // ───────────────────────────────────────────────
 function getOAuthOrigin() {
   if (window.location.protocol === 'file:') return 'http://localhost:8000';
-  // 포트 포함 origin 고정 (예: http://localhost:8000)
+  // JS 원본: 스킴+호스트+포트만 (경로 없음)
+  // 예: http://localhost:8000  /  https://gohwansok-max.github.io
   return window.location.origin;
 }
 
 function getOAuthRedirectUri() {
-  // 항상 origin + '/'  (예: http://localhost:8000/)
-  // index.html 경로·쿼리·해시 절대 포함하지 않음
-  return getOAuthOrigin().replace(/\/+$/, '') + '/';
+  // 리디렉션: 현재 폴더 루트 + '/' (index.html·쿼리·해시 제외)
+  // localhost → http://localhost:8000/
+  // GitHub Pages → https://gohwansok-max.github.io/econnyam-blog/
+  if (window.location.protocol === 'file:') return 'http://localhost:8000/';
+  const u = new URL(window.location.href);
+  let p = u.pathname || '/';
+  if (/\/index\.html$/i.test(p)) {
+    p = p.replace(/\/index\.html$/i, '/');
+  } else if (!p.endsWith('/')) {
+    // /econnyam-blog → /econnyam-blog/
+    // /something.html → 상위 폴더/
+    const last = p.split('/').pop() || '';
+    if (last.includes('.')) p = p.replace(/\/[^/]+$/, '/');
+    else p = p + '/';
+  }
+  if (!p.startsWith('/')) p = '/' + p;
+  if (p === '') p = '/';
+  return u.origin + p;
 }
 
 function startGoogleAuth() {
