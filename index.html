@@ -1370,7 +1370,7 @@ async function updateClaudeHostBanners() {
 function humanizeClaudeError(raw) {
   const s = String(raw || '');
   if (/上游|暂时不可用|网络链路|代理返回|智能路由|固定商家/i.test(s)) {
-    return '칩섭 상류(Claude)가 잠시 불안정합니다. 1~2분 후 다시 생성해 주세요.';
+    return '칩섭 상류(Claude)가 잠시 불안정합니다. 자동 재시도 후에도 안 되면 1~2분 뒤 다시 생성하세요.';
   }
   if (/insufficient|402|余额|크레딧|credit|balance/i.test(s)) {
     return '칩섭 잔액 부족 가능. cheapsub.im 대시보드에서 충전 후 재시도.';
@@ -1384,29 +1384,24 @@ function humanizeClaudeError(raw) {
   if (/429|rate.?limit|Too Many/i.test(s)) {
     return '요청이 너무 많아요. 잠시 후 다시 시도하세요.';
   }
-  if (/timeout|시간.?초과|504/i.test(s)) {
-    return '응답 시간 초과. 네트워크 확인 후 다시 생성하세요.';
+  if (/timeout|시간.?초과|504|502|503/i.test(s)) {
+    return '응답 시간 초과/서버 혼잡. 잠시 후 다시 생성하세요.';
   }
   const short = s.replace(/\s+/g, ' ').trim();
   if (short.length > 100) return short.slice(0, 90) + '…';
   return short || '알 수 없는 오류';
 }
 
-async function callClaude(systemPrompt, userPrompt) {
-  const key = get('claude');
-  if (!key) throw new Error('Claude API 키 없음 (CheapSub csk_ 키)');
+function isRetriableClaudeError(msg) {
+  const s = String(msg || '');
+  return /上游|暂时不可用|网络链路|代理|智能路由|timeout|시간|504|502|503|429|rate|혼잡|불안정|Failed to fetch|fetch/i.test(s);
+}
 
-  // GitHub Pages / 다른 호스트에서는 Claude 불가 (HTTPS→HTTP 프록시 차단 + CORS)
-  if (!isLocalStudioHost()) {
-    throw new Error(
-      'Claude는 http://localhost:8000 에서만 됩니다. ' +
-      '지금 주소(' + window.location.hostname + ')에서는 칩섭 연결이 막힙니다. ' +
-      '블로그_서버_실행.bat 실행 후 http://localhost:8000/ 으로 열어 주세요.'
-    );
-  }
+function sleepMs(ms) {
+  return new Promise(r => setTimeout(r, ms));
+}
 
-  const endpoint = getClaudeEndpoint();
-  const model = getClaudeModel();
+async function callClaudeOnce(key, endpoint, model, systemPrompt, userPrompt) {
   const body = {
     model,
     max_tokens: 16000,
@@ -1414,7 +1409,6 @@ async function callClaude(systemPrompt, userPrompt) {
     system: systemPrompt,
     messages: [{ role: 'user', content: userPrompt }],
   };
-
   let res;
   try {
     res = await fetch('/api/claude', {
@@ -1423,23 +1417,49 @@ async function callClaude(systemPrompt, userPrompt) {
       body: JSON.stringify({ api_key: key, endpoint, body }),
     });
   } catch (e) {
-    throw new Error(
-      '로컬 서버에 연결할 수 없습니다. 검은 서버 창이 켜져 있는지 확인하세요. ' +
-      '「블로그_서버_실행.bat」실행 → http://localhost:8000/ 새로고침 후 다시 생성. ' +
-      '(' + (e.message || 'Failed to fetch') + ')'
-    );
+    throw new Error('로컬 서버에 연결할 수 없습니다. 검은 서버 창이 켜져 있는지 확인하세요. (' + (e.message || 'Failed to fetch') + ')');
   }
-
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     const msg = err.error?.message || err.message || res.statusText || res.status;
-    throw new Error(humanizeClaudeError(msg));
+    throw new Error(msg);
   }
   const data = await res.json();
   if (data.error) {
-    throw new Error(humanizeClaudeError(data.error.message || data.error));
+    throw new Error(data.error.message || JSON.stringify(data.error));
   }
-  return data.content?.[0]?.text || '';
+  const text = data.content?.[0]?.text || '';
+  if (!text.trim()) throw new Error('Claude 응답이 비어 있습니다');
+  return text;
+}
+
+async function callClaude(systemPrompt, userPrompt) {
+  const key = get('claude');
+  if (!key) throw new Error('Claude API 키 없음 (CheapSub csk_ 키)');
+  if (!isLocalStudioHost()) {
+    throw new Error('Claude는 http://localhost:8000 에서만 됩니다. 블로그_서버_실행.bat 실행 후 localhost:8000 으로 열어 주세요.');
+  }
+  const endpoint = getClaudeEndpoint();
+  const model = getClaudeModel();
+  const MAX = 3;
+  let lastErr = '';
+  for (let i = 1; i <= MAX; i++) {
+    try {
+      if (i > 1) {
+        setStep(2, 'active', 'Claude 재시도 ' + i + '/' + MAX + '...', '칩섭 상류 불안정 → 자동 재시도 중');
+        showToast('⏳ Claude 재시도 ' + i + '/' + MAX + '…');
+        await sleepMs(i === 2 ? 2000 : 4000);
+      }
+      return await callClaudeOnce(key, endpoint, model, systemPrompt, userPrompt);
+    } catch (e) {
+      lastErr = e.message || String(e);
+      console.warn('[Claude try ' + i + '/' + MAX + ']', lastErr);
+      if (!isRetriableClaudeError(lastErr) || i === MAX) {
+        throw new Error(humanizeClaudeError(lastErr));
+      }
+    }
+  }
+  throw new Error(humanizeClaudeError(lastErr));
 }
 
 // HTML/마크다운에서 순수 텍스트 글자 수 (공백 제외)
