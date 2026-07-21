@@ -537,7 +537,7 @@ body {
         <div class="step-num" id="step-2-num">2</div>
         <div class="step-body">
           <div class="step-label">Claude — 경제 냠냠 스타일 다듬기</div>
-          <div class="step-desc" id="step-2-desc">claude-sonnet-4-6 로 시니어 친화 문체로 바꿔요</div>
+          <div class="step-desc" id="step-2-desc">claude-sonnet-5 로 시니어 친화 문체로 바꿔요</div>
         </div>
         <div class="step-tag" id="step-2-tag">대기</div>
       </div>
@@ -597,17 +597,28 @@ body {
     </div>
   </div>
 
-  <!-- Claude -->
+  <!-- Claude (CheapSub 중계) -->
   <div class="card">
-    <div class="card-title">Claude API (Anthropic)</div>
+    <div class="card-title">Claude API (CheapSub · Anthropic 호환)</div>
     <div class="field">
       <label>API 키 <span id="badge-claude" class="label-saved">저장됨</span></label>
-      <input type="password" id="s-claude" placeholder="sk-ant-..." autocomplete="off" oninput="saveSettings(true)" onchange="saveSettings()" />
-      <div class="hint">console.anthropic.com → API Keys</div>
+      <input type="password" id="s-claude" placeholder="csk_..." autocomplete="off" oninput="saveSettings(true)" onchange="saveSettings()" />
+      <div class="hint">cheapsub.im 대시보드 → API 키 발급 (csk_ 로 시작)</div>
     </div>
-    <div class="notice notice-warn">
-      ⚠️ 브라우저에서 Claude API를 직접 호출하려면 <code>anthropic-dangerous-direct-browser-access</code> 헤더가 필요해요.
-      일부 환경(CORS 정책)에서 막힐 경우 Gemini가 자동으로 대신 처리해요.
+    <div class="field">
+      <label>엔드포인트 <span id="badge-claude-endpoint" class="label-saved">저장됨</span></label>
+      <input type="text" id="s-claude-endpoint" placeholder="https://api.cheapsub.im/v1" autocomplete="off" oninput="saveSettings(true)" onchange="saveSettings()" />
+      <div class="hint">기본값: https://api.cheapsub.im/v1 (Anthropic 호환 /v1/messages)</div>
+    </div>
+    <div class="field">
+      <label>모델 <span id="badge-claude-model" class="label-saved">저장됨</span></label>
+      <input type="text" id="s-claude-model" placeholder="claude-sonnet-5" autocomplete="off" oninput="saveSettings(true)" onchange="saveSettings()" />
+      <div class="hint">권장: claude-sonnet-5 · 그 외 claude-opus-4-8, claude-fable-5</div>
+    </div>
+    <div class="notice notice-info">
+      💡 CheapSub API로 Claude를 정가의 약 10%에 사용합니다.
+      키가 없으시면 <a href="https://cheapsub.im/api/dashboard" target="_blank" rel="noopener" style="color:var(--gold);">cheapsub.im 대시보드</a>에서 발급하세요.
+      호출 실패 시 Gemini가 자동으로 대신 처리해요.
     </div>
   </div>
 
@@ -710,6 +721,10 @@ body {
 
   <!-- 저장 버튼 영역 -->
   <div class="save-area">
+    <div class="notice notice-info" style="margin-bottom:12px;width:100%;">
+      🔒 입력하는 즉시 <strong>브라우저 로컬 + IndexedDB</strong>에 자동 저장됩니다.
+      캐시 삭제 후에도 복구하려면 <strong>설정 백업</strong> 파일을 받아 두세요.
+    </div>
     <div id="save-time" class="save-time" style="display:none;">
       마지막 저장: <strong id="save-time-value"></strong>
     </div>
@@ -743,8 +758,14 @@ body {
 // 상수
 // ───────────────────────────────────────────────
 const GEMINI_MODEL = 'gemini-3.5-flash';
-const CLAUDE_MODEL = 'claude-sonnet-4-6';
+const CLAUDE_MODEL_DEFAULT = 'claude-sonnet-5';
+const CLAUDE_ENDPOINT_DEFAULT = 'https://api.cheapsub.im/v1';
 const OAUTH_SCOPES = 'https://www.googleapis.com/auth/blogger https://www.googleapis.com/auth/youtube.readonly';
+
+// IndexedDB — localStorage 삭제·시크릿 모드 외에도 설정 복구용 영구 저장
+const IDB_NAME = 'econnyam_blog_cfg';
+const IDB_STORE = 'settings';
+const IDB_VERSION = 1;
 
 // ───────────────────────────────────────────────
 // 상태
@@ -767,24 +788,123 @@ function switchTab(btn, name) {
 }
 
 // ───────────────────────────────────────────────
-// 설정 저장 / 불러오기
+// 설정 저장 / 불러오기 (영구 저장)
+// 우선순위: localStorage → IndexedDB → config.json
+// 저장 시: localStorage + IndexedDB + (로컬서버 시 config.json)
 // ───────────────────────────────────────────────
 
 // localStorage key → input id 매핑
 const FIELD_MAP = [
-  { key: 'gemini',    inputId: 's-gemini',    badgeId: 'badge-gemini'    },
-  { key: 'claude',    inputId: 's-claude',    badgeId: 'badge-claude'    },
-  { key: 'client_id', inputId: 's-client-id', badgeId: 'badge-client-id' },
-  { key: 'blog_id',   inputId: 's-blog-id',   badgeId: 'badge-blog-id'   },
-  { key: 'yt_key',    inputId: 's-yt-key',    badgeId: 'badge-yt-key'    },
-  { key: 'yt_channel',inputId: 's-yt-channel',badgeId: 'badge-yt-channel'}
+  { key: 'gemini',           inputId: 's-gemini',           badgeId: 'badge-gemini'           },
+  { key: 'claude',           inputId: 's-claude',           badgeId: 'badge-claude'           },
+  { key: 'claude_endpoint',  inputId: 's-claude-endpoint',  badgeId: 'badge-claude-endpoint'  },
+  { key: 'claude_model',     inputId: 's-claude-model',     badgeId: 'badge-claude-model'     },
+  { key: 'client_id',        inputId: 's-client-id',        badgeId: 'badge-client-id'        },
+  { key: 'blog_id',          inputId: 's-blog-id',          badgeId: 'badge-blog-id'          },
+  { key: 'yt_key',           inputId: 's-yt-key',           badgeId: 'badge-yt-key'           },
+  { key: 'yt_channel',       inputId: 's-yt-channel',       badgeId: 'badge-yt-channel'       }
 ];
 
-function saveSettings(silent = false) {
+function collectConfig() {
+  const config = {};
+  FIELD_MAP.forEach(({ key, inputId }) => {
+    const el = document.getElementById(inputId);
+    config[key] = el ? el.value.trim() : '';
+  });
+  return config;
+}
+
+function applyConfigToInputs(config, { onlyEmpty = false } = {}) {
+  let hasAny = false;
   FIELD_MAP.forEach(({ key, inputId, badgeId }) => {
-    const val = document.getElementById(inputId).value.trim();
+    const val = config[key];
+    if (val === undefined || val === null || String(val).trim() === '') return;
+    const el = document.getElementById(inputId);
+    if (!el) return;
+    if (onlyEmpty && el.value.trim()) return;
+    el.value = String(val).trim();
+    localStorage.setItem('ec_' + key, el.value);
+    const badge = document.getElementById(badgeId);
+    if (badge) badge.classList.add('show');
+    hasAny = true;
+  });
+  return hasAny;
+}
+
+function applyDefaultsIfEmpty() {
+  const ep = document.getElementById('s-claude-endpoint');
+  const md = document.getElementById('s-claude-model');
+  if (ep && !ep.value.trim()) {
+    ep.value = CLAUDE_ENDPOINT_DEFAULT;
+    localStorage.setItem('ec_claude_endpoint', CLAUDE_ENDPOINT_DEFAULT);
+    const b = document.getElementById('badge-claude-endpoint');
+    if (b) b.classList.add('show');
+  }
+  if (md && !md.value.trim()) {
+    md.value = CLAUDE_MODEL_DEFAULT;
+    localStorage.setItem('ec_claude_model', CLAUDE_MODEL_DEFAULT);
+    const b = document.getElementById('badge-claude-model');
+    if (b) b.classList.add('show');
+  }
+}
+
+// IndexedDB helpers
+function openSettingsDB() {
+  return new Promise((resolve, reject) => {
+    if (!window.indexedDB) { resolve(null); return; }
+    const req = indexedDB.open(IDB_NAME, IDB_VERSION);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(IDB_STORE)) {
+        db.createObjectStore(IDB_STORE);
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => resolve(null);
+  });
+}
+
+async function idbSaveSettings(config) {
+  try {
+    const db = await openSettingsDB();
+    if (!db) return;
+    await new Promise((resolve) => {
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).put({ ...config, saved_at: Date.now() }, 'main');
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => resolve();
+    });
+    db.close();
+  } catch (e) {
+    console.warn('[IDB] 저장 실패', e);
+  }
+}
+
+async function idbLoadSettings() {
+  try {
+    const db = await openSettingsDB();
+    if (!db) return null;
+    const data = await new Promise((resolve) => {
+      const tx = db.transaction(IDB_STORE, 'readonly');
+      const req = tx.objectStore(IDB_STORE).get('main');
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => resolve(null);
+    });
+    db.close();
+    return data;
+  } catch (e) {
+    console.warn('[IDB] 불러오기 실패', e);
+    return null;
+  }
+}
+
+function saveSettings(silent = false) {
+  const config = collectConfig();
+
+  // 1) localStorage (즉시·영구)
+  FIELD_MAP.forEach(({ key, inputId, badgeId }) => {
+    const val = config[key] || '';
     localStorage.setItem('ec_' + key, val);
-    // 저장됨 뱃지 표시
     const badge = document.getElementById(badgeId);
     if (badge) badge.classList.toggle('show', val.length > 0);
   });
@@ -796,11 +916,16 @@ function saveSettings(silent = false) {
   localStorage.setItem('ec_saved_at', ts);
   showSaveTime(ts);
 
-  // 로컬 서버 config.json 저장 시도
+  // 2) IndexedDB 백업 (localStorage 삭제 시 복구)
+  idbSaveSettings(config);
+
+  // 3) 로컬 서버 config.json 저장 시도
   saveToServerConfig();
 
+  // 스텝 설명 갱신
+  updateClaudeStepDesc();
+
   if (!silent) {
-    // 버튼 상태 전환: "✅ 저장 완료!" → 1.5초 후 원래대로
     const btn = document.getElementById('save-btn');
     if (btn) {
       btn.textContent = '✅ 저장 완료!';
@@ -812,16 +937,14 @@ function saveSettings(silent = false) {
         btn.disabled = false;
       }, 1500);
     }
+    showToast('💾 설정이 영구 저장되었어요 (브라우저 로컬 + 백업)');
   }
 }
 
 async function saveToServerConfig() {
   if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
     try {
-      const config = {};
-      FIELD_MAP.forEach(({ key, inputId }) => {
-        config[key] = document.getElementById(inputId).value.trim();
-      });
+      const config = collectConfig();
       await fetch('/api/save_config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -835,35 +958,40 @@ async function saveToServerConfig() {
 
 async function loadSettings() {
   let hasAny = false;
+
+  // 1) localStorage
   FIELD_MAP.forEach(({ key, inputId, badgeId }) => {
     const val = localStorage.getItem('ec_' + key) || '';
-    document.getElementById(inputId).value = val;
+    const el = document.getElementById(inputId);
+    if (el) el.value = val;
     const badge = document.getElementById(badgeId);
     if (badge && val.length > 0) { badge.classList.add('show'); hasAny = true; }
   });
 
-  // 로컬 서버의 config.json에서 설정 읽어오기
+  // 2) IndexedDB — localStorage가 비어 있는 필드만 채움
+  const idbConfig = await idbLoadSettings();
+  if (idbConfig) {
+    if (applyConfigToInputs(idbConfig, { onlyEmpty: true })) hasAny = true;
+  }
+
+  // 3) config.json (로컬 서버 / 배포된 파일)
   try {
     const res = await fetch('config.json');
     if (res.ok) {
       const config = await res.json();
-      FIELD_MAP.forEach(({ key, inputId, badgeId }) => {
-        const val = config[key];
-        if (val !== undefined && val !== null) {
-          document.getElementById(inputId).value = val;
-          localStorage.setItem('ec_' + key, val);
-          const badge = document.getElementById(badgeId);
-          if (badge && val.length > 0) { badge.classList.add('show'); hasAny = true; }
-        }
-      });
+      // 파일 값은 비어 있는 필드 우선 채움 (이미 입력된 키 덮어쓰지 않음)
+      if (applyConfigToInputs(config, { onlyEmpty: true })) hasAny = true;
     }
   } catch (e) {
     console.log('config.json 없음 또는 불러오기 실패:', e);
   }
 
+  // Claude 기본값 (엔드포인트·모델) 비어 있으면 채움
+  applyDefaultsIfEmpty();
+
   // Google OAuth 클라이언트 ID 자동 로드 (credentials_web.json 기준)
   const clientIdInput = document.getElementById('s-client-id');
-  if (!clientIdInput.value.trim()) {
+  if (clientIdInput && !clientIdInput.value.trim()) {
     try {
       const res = await fetch('credentials_web.json');
       if (res.ok) {
@@ -883,14 +1011,43 @@ async function loadSettings() {
     }
   }
 
+  // 로드된 값을 IndexedDB·localStorage에 동기화 (영구 보존)
+  const synced = collectConfig();
+  FIELD_MAP.forEach(({ key }) => {
+    if (synced[key]) localStorage.setItem('ec_' + key, synced[key]);
+  });
+  idbSaveSettings(synced);
+
   // 저장 시각 복원
   const savedAt = localStorage.getItem('ec_saved_at');
   if (savedAt) showSaveTime(savedAt);
 
   // 저장된 값이 하나라도 있으면 불러옴 알림 표시
-  if (hasAny) {
-    document.getElementById('loaded-notice').classList.add('show');
+  if (hasAny || synced.claude_endpoint || synced.claude_model) {
+    const notice = document.getElementById('loaded-notice');
+    if (notice) notice.classList.add('show');
   }
+
+  // 스텝 설명에 현재 모델 반영
+  updateClaudeStepDesc();
+}
+
+function getClaudeModel() {
+  return (get('claude_model') || CLAUDE_MODEL_DEFAULT).trim() || CLAUDE_MODEL_DEFAULT;
+}
+
+function getClaudeEndpoint() {
+  let ep = (get('claude_endpoint') || CLAUDE_ENDPOINT_DEFAULT).trim() || CLAUDE_ENDPOINT_DEFAULT;
+  // 끝 슬래시 제거
+  ep = ep.replace(/\/+$/, '');
+  // /v1/messages 까지 넣었다면 base(/v1)로 정규화
+  if (ep.endsWith('/messages')) ep = ep.replace(/\/messages$/, '');
+  return ep;
+}
+
+function updateClaudeStepDesc() {
+  const el = document.getElementById('step-2-desc');
+  if (el) el.textContent = getClaudeModel() + ' 로 시니어 친화 문체로 바꿔요';
 }
 
 function showSaveTime(ts) {
@@ -915,11 +1072,10 @@ function loadDraft() {
 }
 
 function exportSettings() {
-  const config = {};
-  FIELD_MAP.forEach(({ key, inputId }) => {
-    config[key] = document.getElementById(inputId).value.trim();
-  });
-  
+  const config = collectConfig();
+  config.exported_at = new Date().toISOString();
+  config.app = 'econnyam-blog';
+
   const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -929,33 +1085,35 @@ function exportSettings() {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  showToast('💾 설정 파일이 다운로드되었어요!');
+  showToast('💾 설정 백업 파일이 다운로드되었어요! 안전한 곳에 보관하세요.');
 }
 
 function importSettings(input) {
   const file = input.files[0];
   if (!file) return;
-  
+
   const reader = new FileReader();
   reader.onload = function(e) {
     try {
       const config = JSON.parse(e.target.result);
       let loadedCount = 0;
-      
+
       FIELD_MAP.forEach(({ key, inputId, badgeId }) => {
         const val = config[key];
-        if (val !== undefined && val !== null) {
-          document.getElementById(inputId).value = val;
-          localStorage.setItem('ec_' + key, val);
+        if (val !== undefined && val !== null && String(val).trim() !== '') {
+          document.getElementById(inputId).value = String(val).trim();
+          localStorage.setItem('ec_' + key, String(val).trim());
           const badge = document.getElementById(badgeId);
-          if (badge) badge.classList.toggle('show', val.length > 0);
+          if (badge) badge.classList.add('show');
           loadedCount++;
         }
       });
-      
+
       if (loadedCount > 0) {
+        applyDefaultsIfEmpty();
         saveSettings(true);
-        showToast('✅ 설정이 성공적으로 복원되었어요!');
+        updateClaudeStepDesc();
+        showToast('✅ 설정이 성공적으로 복원·영구 저장되었어요!');
       } else {
         showToast('⚠️ 유효한 설정 값이 없어요.');
       }
@@ -967,7 +1125,15 @@ function importSettings(input) {
   input.value = '';
 }
 
-function get(key) { return localStorage.getItem('ec_' + key) || ''; }
+function get(key) {
+  // 입력창 값이 있으면 우선 (방금 입력한 키 즉시 반영)
+  const field = FIELD_MAP.find(f => f.key === key);
+  if (field) {
+    const el = document.getElementById(field.inputId);
+    if (el && el.value.trim()) return el.value.trim();
+  }
+  return localStorage.getItem('ec_' + key) || '';
+}
 
 // ───────────────────────────────────────────────
 // Toast 알림
@@ -1103,22 +1269,34 @@ async function callGeminiVideo(videoUrl, prompt) {
 }
 
 // ───────────────────────────────────────────────
-// Claude API 호출 (브라우저 직접)
+// Claude API 호출 (CheapSub Anthropic 호환)
+// base: https://api.cheapsub.im/v1  →  POST .../messages
 // ───────────────────────────────────────────────
 async function callClaude(systemPrompt, userPrompt) {
   const key = get('claude');
-  if (!key) throw new Error('Claude API 키 없음');
+  if (!key) throw new Error('Claude API 키 없음 (CheapSub csk_ 키)');
 
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
+  const endpoint = getClaudeEndpoint();
+  const model = getClaudeModel();
+  const url = endpoint + '/messages';
+
+  const headers = {
+    'Content-Type': 'application/json',
+    'x-api-key': key,
+    'anthropic-version': '2023-06-01',
+    // 공식 Anthropic CORS용. CheapSub에서도 무해하게 전달.
+    'anthropic-dangerous-direct-browser-access': 'true',
+  };
+  // CheapSub는 Bearer 도 지원
+  if (key.startsWith('csk_')) {
+    headers['Authorization'] = 'Bearer ' + key;
+  }
+
+  const res = await fetch(url, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': key,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
+    headers,
     body: JSON.stringify({
-      model: CLAUDE_MODEL,
+      model,
       max_tokens: 4096,
       system: systemPrompt,
       messages: [{ role: 'user', content: userPrompt }],
@@ -1127,7 +1305,7 @@ async function callClaude(systemPrompt, userPrompt) {
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error('Claude 오류: ' + (err.error?.message || res.statusText));
+    throw new Error('Claude(CheapSub) 오류: ' + (err.error?.message || res.statusText || res.status));
   }
   const data = await res.json();
   return data.content?.[0]?.text || '';
@@ -1288,13 +1466,13 @@ async function startGeneration() {
 
     try {
       refined = await callClaude(STYLE_SYSTEM, stylePrompt(draft));
-      step2Note = CLAUDE_MODEL;
+      step2Note = getClaudeModel() + ' · CheapSub';
     } catch (claudeErr) {
-      // Claude 실패(CORS 등) → Gemini fallback
+      // Claude/CheapSub 실패(CORS·잔액 등) → Gemini fallback
       console.warn('[Claude fallback]', claudeErr.message);
-      step2Note = 'Gemini 대체 처리 (Claude CORS 제한)';
+      step2Note = 'Gemini 대체 처리 (' + (claudeErr.message || 'Claude 실패') + ')';
       setStep(2, 'active', 'Gemini 대체 중...',
-              'Claude CORS 제한 → Gemini로 스타일 다듬기');
+              'Claude/CheapSub 실패 → Gemini로 스타일 다듬기');
       refined = await callGemini(stylePrompt(draft), STYLE_SYSTEM);
     }
 
@@ -1658,8 +1836,8 @@ async function copyOauthUrl(el) {
 // ───────────────────────────────────────────────
 // 초기화
 // ───────────────────────────────────────────────
-window.addEventListener('DOMContentLoaded', () => {
-  loadSettings();
+window.addEventListener('DOMContentLoaded', async () => {
+  await loadSettings();
   loadDraft();
   handleOAuthCallback();
   if (!gAccessToken && loadSavedToken()) {
