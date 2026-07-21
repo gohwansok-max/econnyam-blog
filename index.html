@@ -1696,9 +1696,10 @@ async function startGeneration() {
       step2Note = getClaudeModel() + ' · 장문 확장';
     } catch (claudeErr) {
       console.warn('[Claude fallback]', claudeErr.message);
-      step2Note = 'Gemini 대체 (' + (claudeErr.message || 'Claude 실패') + ')';
-      setStep(2, 'active', 'Gemini 장문 작성 중...',
-              'Claude 실패 → Gemini로 장문 윤문');
+      const nice = humanizeClaudeError(claudeErr.message || 'Claude 실패');
+      step2Note = 'Gemini 대체 · ' + nice;
+      setStep(2, 'active', 'Gemini 장문 작성 중...', nice);
+      showToast('⚠️ Claude 잠시 불안정 → Gemini로 이어서 작성합니다');
       refined = await callGemini(stylePrompt(draft), STYLE_SYSTEM);
     }
 
