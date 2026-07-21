@@ -481,9 +481,34 @@ body {
   <strong style="color:#fca5a5;font-size:15px;">⚠️ Google 로그인을 사용하려면 서버가 필요해요</strong><br>
   지금 이 파일을 <code style="background:rgba(0,0,0,.3);padding:1px 6px;border-radius:4px;">file://</code> 로 직접 열어서 Google OAuth가 작동하지 않아요.<br>
   <strong style="color:#fff;">해결 방법:</strong>
-  폴더에서 <code style="background:rgba(0,0,0,.3);padding:1px 6px;border-radius:4px;">server.py</code> 를 실행하거나,
-  터미널에서 <code style="background:rgba(0,0,0,.3);padding:1px 6px;border-radius:4px;">python server.py</code> 를 입력하세요.<br>
-  <span style="color:#fbbf24;">그러면 브라우저가 자동으로 <strong>http://localhost:8000/</strong> 로 열려요.</span>
+  폴더의 <code style="background:rgba(0,0,0,.3);padding:1px 6px;border-radius:4px;">블로그_서버_실행.bat</code> 을 더블클릭하세요.<br>
+  <span style="color:#fbbf24;">반드시 <strong>http://localhost:8000/</strong> 주소로 열어 주세요.</span>
+</div>
+
+<!-- Claude/서버 상태 배너 -->
+<div id="claude-host-banner" style="display:none;
+  background: linear-gradient(135deg,#78350f,#92400e);
+  border-bottom: 2px solid #f59e0b;
+  padding: 12px 28px;
+  font-size: 14px;
+  color: #fde68a;
+  line-height: 1.7;">
+  <strong style="color:#fcd34d;">⚠️ Claude(칩섭) 사용 불가 주소입니다</strong><br>
+  지금 주소: <code id="claude-host-url" style="background:rgba(0,0,0,.35);padding:1px 6px;border-radius:4px;"></code><br>
+  GitHub 사이트(https://…github.io)나 파일 직접 열기에서는 Claude가 <strong>무조건 실패</strong>하고 Gemini 대체로 넘어갑니다.<br>
+  <strong style="color:#fff;">해결:</strong>
+  ① <code style="background:rgba(0,0,0,.35);padding:1px 6px;border-radius:4px;">블로그_서버_실행.bat</code> 실행(검은 창 유지)
+  ② 브라우저 주소창에 <a href="http://localhost:8000/" style="color:#fbbf24;font-weight:700;">http://localhost:8000/</a> 입력
+</div>
+
+<div id="claude-proxy-banner" style="display:none;
+  background: linear-gradient(135deg,#1e3a5f,#1e40af);
+  border-bottom: 2px solid #60a5fa;
+  padding: 10px 28px;
+  font-size: 13px;
+  color: #bfdbfe;
+  line-height: 1.6;">
+  <span id="claude-proxy-msg">Claude 프록시 확인 중…</span>
 </div>
 
 <!-- ════════════════ HEADER ════════════════ -->
@@ -1287,30 +1312,72 @@ async function callGeminiVideo(videoUrl, prompt) {
 }
 
 // ───────────────────────────────────────────────
-// Claude API 호출 (CheapSub Anthropic 호환)
-// 브라우저 → 칩섭 직행은 CORS 로 막힘
-// → 항상 로컬 프록시(http://127.0.0.1:8000/api/claude) 우선
-//    (github.io 로 열어도 서버만 켜져 있으면 Claude 사용 가능)
+// Claude API 호출 (CheapSub)
+// ※ 브라우저 → 칩섭 직행 = CORS 실패
+// ※ https://github.io → http://127.0.0.1 프록시 = 브라우저가 차단
+// → 반드시 http://localhost:8000 에서 열고 /api/claude 사용
 // ───────────────────────────────────────────────
-const LOCAL_CLAUDE_PROXY = 'http://127.0.0.1:8000/api/claude';
-
 function isLocalStudioHost() {
   const h = window.location.hostname;
   return h === 'localhost' || h === '127.0.0.1';
 }
 
-async function tryClaudeProxy(proxyUrl, key, endpoint, body) {
-  const res = await fetch(proxyUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ api_key: key, endpoint, body }),
-  });
-  return res;
+async function checkClaudeProxyReady() {
+  if (!isLocalStudioHost()) return false;
+  try {
+    // 서버 살아 있는지: 존재하지 않는 경로여도 연결되면 네트워크 OK
+    // 대신 HEAD 대신 GET / 로 확인
+    const r = await fetch('/', { method: 'GET', cache: 'no-store' });
+    return r.ok || r.status === 200 || r.status === 304;
+  } catch {
+    return false;
+  }
+}
+
+async function updateClaudeHostBanners() {
+  const hostBan = document.getElementById('claude-host-banner');
+  const proxyBan = document.getElementById('claude-proxy-banner');
+  const urlEl = document.getElementById('claude-host-url');
+  const msgEl = document.getElementById('claude-proxy-msg');
+
+  if (urlEl) urlEl.textContent = window.location.href.split('#')[0];
+
+  if (!isLocalStudioHost()) {
+    if (hostBan) hostBan.style.display = 'block';
+    if (proxyBan) proxyBan.style.display = 'none';
+    return;
+  }
+  if (hostBan) hostBan.style.display = 'none';
+
+  const ok = await checkClaudeProxyReady();
+  if (proxyBan && msgEl) {
+    proxyBan.style.display = 'block';
+    if (ok) {
+      proxyBan.style.background = 'linear-gradient(135deg,#14532d,#166534)';
+      proxyBan.style.borderBottomColor = '#22c55e';
+      proxyBan.style.color = '#bbf7d0';
+      msgEl.innerHTML = '✅ 로컬 서버 연결됨 · Claude(칩섭) 사용 가능 &nbsp;·&nbsp; 주소: <strong>http://localhost:8000/</strong>';
+    } else {
+      proxyBan.style.background = 'linear-gradient(135deg,#7c1d1d,#991b1b)';
+      proxyBan.style.borderBottomColor = '#ef4444';
+      proxyBan.style.color = '#fecaca';
+      msgEl.innerHTML = '❌ 로컬 서버에 연결되지 않음 · <strong>블로그_서버_실행.bat</strong> 을 실행한 뒤 이 페이지를 새로고침하세요';
+    }
+  }
 }
 
 async function callClaude(systemPrompt, userPrompt) {
   const key = get('claude');
   if (!key) throw new Error('Claude API 키 없음 (CheapSub csk_ 키)');
+
+  // GitHub Pages / 다른 호스트에서는 Claude 불가 (HTTPS→HTTP 프록시 차단 + CORS)
+  if (!isLocalStudioHost()) {
+    throw new Error(
+      'Claude는 http://localhost:8000 에서만 됩니다. ' +
+      '지금 주소(' + window.location.hostname + ')에서는 칩섭 연결이 막힙니다. ' +
+      '블로그_서버_실행.bat 실행 후 http://localhost:8000/ 으로 열어 주세요.'
+    );
+  }
 
   const endpoint = getClaudeEndpoint();
   const model = getClaudeModel();
@@ -1322,74 +1389,25 @@ async function callClaude(systemPrompt, userPrompt) {
     messages: [{ role: 'user', content: userPrompt }],
   };
 
-  let res = null;
-  let lastErr = '';
-
-  // 1) 절대 주소 로컬 프록시 — github.io / localhost 모두 시도
+  let res;
   try {
-    res = await tryClaudeProxy(LOCAL_CLAUDE_PROXY, key, endpoint, body);
-    if (res && res.ok) {
-      const data = await res.json();
-      return data.content?.[0]?.text || '';
-    }
-    if (res) {
-      const err = await res.json().catch(() => ({}));
-      lastErr = err.error?.message || err.message || ('HTTP ' + res.status);
-      // 4xx/5xx 도 아래 폴백 시도하지 않고 바로 알려주는 편이 나을 수 있음
-      // 프록시가 응답한 경우(서버는 켜짐) → 오류 메시지 전달
-      if (res.status >= 400) {
-        throw new Error('Claude(칩섭) 오류: ' + lastErr);
-      }
-    }
-  } catch (e) {
-    if (e.message && e.message.startsWith('Claude(칩섭)')) throw e;
-    lastErr = e.message || 'proxy fail';
-    console.warn('[Claude proxy absolute]', lastErr);
-    res = null;
-  }
-
-  // 2) 같은 출처 상대 경로 (localhost:8000 으로 연 경우)
-  if (isLocalStudioHost()) {
-    try {
-      res = await tryClaudeProxy('/api/claude', key, endpoint, body);
-      if (res && res.ok) {
-        const data = await res.json();
-        return data.content?.[0]?.text || '';
-      }
-      if (res && res.status >= 400) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error('Claude(칩섭) 오류: ' + (err.error?.message || res.status));
-      }
-    } catch (e) {
-      if (e.message && e.message.startsWith('Claude(칩섭)')) throw e;
-      lastErr = e.message || lastErr;
-      console.warn('[Claude proxy relative]', lastErr);
-    }
-  }
-
-  // 3) 직접 호출 (거의 실패 — CORS)
-  try {
-    const url = endpoint + '/messages';
-    const headers = {
-      'Content-Type': 'application/json',
-      'x-api-key': key,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    };
-    if (key.startsWith('csk_')) headers['Authorization'] = 'Bearer ' + key;
-    res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
+    res = await fetch('/api/claude', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ api_key: key, endpoint, body }),
+    });
   } catch (e) {
     throw new Error(
-      'Claude 연결 실패. 로컬 서버가 꺼져 있습니다. ' +
-      '「블로그_서버_실행.bat」을 더블클릭하거나, 폴더에서 python server.py 실행 후 ' +
-      '다시 생성해 주세요. (서버 창은 닫지 마세요)'
+      '로컬 서버에 연결할 수 없습니다. 검은 서버 창이 켜져 있는지 확인하세요. ' +
+      '「블로그_서버_실행.bat」실행 → http://localhost:8000/ 새로고침 후 다시 생성. ' +
+      '(' + (e.message || 'Failed to fetch') + ')'
     );
   }
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     const msg = err.error?.message || err.message || res.statusText || res.status;
-    throw new Error('Claude(CheapSub) 오류: ' + msg);
+    throw new Error('Claude(칩섭) 오류: ' + msg);
   }
   const data = await res.json();
   return data.content?.[0]?.text || '';
@@ -1587,6 +1605,32 @@ async function startGeneration() {
 
   const videoId = extractVideoId(rawUrl);
   if (!videoId) { showToast('⚠️ 올바른 유튜브 URL이 아니에요.'); return; }
+
+  // Claude 사용 전 주소/서버 검사
+  if (!isLocalStudioHost()) {
+    alert(
+      '⚠️ Claude(칩섭)를 쓰려면 반드시\n\n' +
+      '   http://localhost:8000/\n\n' +
+      '으로 열어 주세요.\n\n' +
+      '지금 주소: ' + window.location.href + '\n\n' +
+      '1) 블로그_서버_실행.bat 더블클릭\n' +
+      '2) 브라우저 주소창에 localhost:8000 입력\n' +
+      '3) 다시 생성\n\n' +
+      '(GitHub 사이트에서는 Claude가 막히고 Gemini만 사용됩니다)'
+    );
+    // github 등에서는 계속 진행 가능(Gemini 대체)하되 안내
+  } else {
+    const ready = await checkClaudeProxyReady();
+    if (!ready) {
+      alert(
+        '⚠️ 로컬 서버가 꺼져 있어요.\n\n' +
+        '「블로그_서버_실행.bat」을 더블클릭한 뒤\n' +
+        '이 페이지를 새로고침하고 다시 생성해 주세요.\n\n' +
+        '서버 검은 창은 닫지 마세요!'
+      );
+      return;
+    }
+  }
 
   const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
 
@@ -2092,6 +2136,9 @@ window.addEventListener('DOMContentLoaded', async () => {
   if (window.location.protocol === 'file:') {
     document.getElementById('file-warn-banner').style.display = 'block';
   }
+
+  // Claude 주소/서버 상태 배너
+  updateClaudeHostBanners();
 
   // OAuth URL 표시 — 로그인 시 실제 전송값과 동일
   const originEl  = document.getElementById('oauth-origin');
