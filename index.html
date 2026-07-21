@@ -536,8 +536,8 @@ body {
       <div class="step" id="step-2">
         <div class="step-num" id="step-2-num">2</div>
         <div class="step-body">
-          <div class="step-label">Claude — 경제 냠냠 스타일 다듬기</div>
-          <div class="step-desc" id="step-2-desc">claude-sonnet-5 로 시니어 친화 문체로 바꿔요</div>
+          <div class="step-label">Claude — 장문 윤문·확장 (애드센스용)</div>
+          <div class="step-desc" id="step-2-desc">claude-sonnet-5 로 4,000자+ 풍성하게 확장해요</div>
         </div>
         <div class="step-tag" id="step-2-tag">대기</div>
       </div>
@@ -1047,7 +1047,7 @@ function getClaudeEndpoint() {
 
 function updateClaudeStepDesc() {
   const el = document.getElementById('step-2-desc');
-  if (el) el.textContent = getClaudeModel() + ' 로 시니어 친화 문체로 바꿔요';
+  if (el) el.textContent = getClaudeModel() + ' 로 4,000자+ 장문·FAQ·체크리스트까지 확장해요';
 }
 
 function showSaveTime(ts) {
@@ -1205,6 +1205,13 @@ function setStep(n, state, tagText, descText) {
 // ───────────────────────────────────────────────
 // Gemini API 호출 (텍스트)
 // ───────────────────────────────────────────────
+// Gemini 장문 생성 설정 (애드센스용 분량 확보)
+const GEMINI_GEN_CONFIG = {
+  temperature: 0.75,
+  maxOutputTokens: 8192,
+  topP: 0.95,
+};
+
 async function callGemini(userText, systemContext) {
   const key = get('gemini');
   if (!key) throw new Error('Gemini API 키가 없어요. ⚙️ 설정 탭에서 입력해주세요.');
@@ -1214,7 +1221,7 @@ async function callGemini(userText, systemContext) {
 
   if (systemContext) {
     contents.push({ role: 'user',  parts: [{ text: systemContext }] });
-    contents.push({ role: 'model', parts: [{ text: '알겠어요, 안내에 따라 작성할게요.' }] });
+    contents.push({ role: 'model', parts: [{ text: '알겠어요. 애드센스 승인 가능한 장문·고밀도 글로 작성할게요.' }] });
   }
   contents.push({ role: 'user', parts });
 
@@ -1223,7 +1230,7 @@ async function callGemini(userText, systemContext) {
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents }),
+      body: JSON.stringify({ contents, generationConfig: GEMINI_GEN_CONFIG }),
     }
   );
 
@@ -1248,7 +1255,8 @@ async function callGeminiVideo(videoUrl, prompt) {
         { fileData: { fileUri: videoUrl, mimeType: 'video/mp4' } },
         { text: prompt }
       ]
-    }]
+    }],
+    generationConfig: GEMINI_GEN_CONFIG,
   };
 
   const res = await fetch(
@@ -1297,7 +1305,9 @@ async function callClaude(systemPrompt, userPrompt) {
     headers,
     body: JSON.stringify({
       model,
-      max_tokens: 4096,
+      // 장문 블로그: 한국어 4,000~8,000자 확보용 (짧으면 중간에 잘림)
+      max_tokens: 16000,
+      temperature: 0.7,
       system: systemPrompt,
       messages: [{ role: 'user', content: userPrompt }],
     }),
@@ -1310,6 +1320,21 @@ async function callClaude(systemPrompt, userPrompt) {
   const data = await res.json();
   return data.content?.[0]?.text || '';
 }
+
+// HTML/마크다운에서 순수 텍스트 글자 수 (공백 제외)
+function plainTextLen(html) {
+  const t = String(html || '')
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&[a-z]+;/gi, ' ')
+    .replace(/\s+/g, '');
+  return t.length;
+}
+
+// 애드센스 최소 권장 분량 (공백 제외 본문 글자 수)
+const ADSENSE_MIN_CHARS = 3500;
 
 // ───────────────────────────────────────────────
 // 유튜브 임베드 코드
@@ -1345,67 +1370,138 @@ async function fetchVideoTitle(videoUrl) {
 }
 
 // ───────────────────────────────────────────────
-// 프롬프트 텍스트 (구글 애드센스 승인 품질 기준 적용)
+// 프롬프트 텍스트 (구글 애드센스 승인 — 장문·고밀도)
+// 목표: 공백 제외 3,500자 이상 / 가능하면 5,000자+ 본문
 // ───────────────────────────────────────────────
-const DRAFT_PROMPT_VID = `
-이 유튜브 영상의 전체 내용을 세밀하게 분석하여 구글 애드센스 승인 기준을 완벽히 충족하는 고품질의 장문(Long-form) 한국어 블로그 포스트 초안을 작성해 주세요.
+const LENGTH_RULES = `
+[분량·품질 — 구글 애드센스 승인용 · 절대 준수]
+1. 본문 분량: 공백 제외 한국어 **최소 4,000자**, 목표 **5,000~7,000자**. 짧은 요약글·얇은 콘텐츠 금지.
+2. 절대 금지: 영상 내용 한 줄 요약, 문단 3~4개짜리 짧은 글, "자세한 내용은 영상에서" 식 회피.
+3. 구조(필수 순서, 빠짐없이):
+   (1) 도입: 독자 관심 유발 + 오늘의 핵심 질문 (p 3~5개)
+   (2) 배경·맥락: 왜 지금 이 이슈인지, 최근 흐름 (h2)
+   (3) 핵심 내용 1: 영상/주제의 중심 설명 + 수치·사례 (h2, 하위 h3 2개 이상)
+   (4) 핵심 내용 2: 원인·메커니즘·비교 (h2, 하위 h3 가능)
+   (5) 핵심 내용 3: 우리 일상·지갑·노후에 미치는 영향 (h2)
+   (6) 시니어 실전 체크리스트: 지금 당장 확인할 3~7가지 (h2 + ul)
+   (7) 자주 묻는 질문 FAQ: 질문 4개 이상 (h2, 각 질문에 h3 + p 답변 2문단 이상)
+   (8) 정리·전망: 핵심 3줄 요약 + 앞으로 볼 포인트 (h2)
+   (9) 마무리 인사: 독자 응원 한 단락
+4. 각 h2 섹션은 최소 p 단락 3개 이상. 한 문단은 3~6문장으로 풍성하게.
+5. 데이터 밀도: 수치·연도·기관명·전후 비교·인과관계를 구체화. 모르면 일반 경제 상식으로 보완하되 과장·허위 확정 금지.
+6. 독창 가치: 단순 복붙 요약이 아니라 "왜 중요한지 / 어떻게 대응할지"를 친절히 풀어쓰기.
+7. 소제목은 ## (초안) 또는 지시된 HTML 태그 사용.
+`;
 
-[품질 및 분량 요구사항 - 엄격 준수]
-1. 전체 분량: 반드시 공백을 제외하고 2,000자 이상의 풍부하고 묵직한 분량으로 작성해 주세요.
-2. 논리적 구조: 서론(배경 및 문제제기) - 본론(최소 3개 이상의 핵심 섹션과 세부 내용) - 결론(인사이트 요약 및 향후 전망) 구조를 명확히 지켜주세요.
-3. 데이터 밀도: 영상에서 언급된 핵심 수치, 통계 자료, 구체적인 사례, 경제 용어, 전후 인과관계를 절대 생략하지 말고 모두 상세하게 기술해야 합니다.
-4. 분석적 접근: 단순한 현상 요약을 넘어, 이 경제 이슈가 시장과 개인에게 미칠 영향과 맥락을 풍부한 설명 텍스트로 보완해 주세요.
-5. 서식 규칙: 주요 대단락의 소제목은 반드시 "## 소제목" 형식을 사용해 주세요.
+const DRAFT_PROMPT_VID = `
+이 유튜브 영상의 전체 내용을 세밀하게 분석하여,
+구글 애드센스 승인을 목표로 한 **초장문·고품질** 한국어 경제 블로그 초안을 작성해 주세요.
+채널 톤: 50~70대 시니어에게 동네 형님처럼 설명하는 '경제 냠냠' 스타일(초안 단계에서도 친절·상세하게).
+
+${LENGTH_RULES}
+
+[영상 분석 추가 지시]
+- 영상에서 나온 주장·수치·사례·비유를 빠짐없이 글로 옮기고, 부족한 배경 설명은 보강하세요.
+- 시청자가 영상 없이도 이 글만으로 주제를 완전히 이해할 수 있어야 합니다.
+- 서식: 대단락 소제목은 "## 소제목" 형식.
+- 출력: 초안 본문만 (메타 설명·사과 문구 금지).
 `;
 
 function draftPromptByTitle(title, url) {
   return `
-다음 유튜브 영상 제목과 주제를 바탕으로, 구글 검색 엔진(SEO)이 선호하고 애드센스 승인이 가능한 전문적인 장문(Long-form) 한국어 블로그 포스트 초안을 작성해 주세요.
+다음 유튜브 영상 제목·주제를 바탕으로, 구글 애드센스·SEO에 유리한 **초장문** 한국어 경제 블로그 초안을 작성해 주세요.
+채널: 경제 냠냠 (시니어 50~70대 독자).
 
 영상 제목: "${title}"
 영상 URL: ${url}
 
-[품질 및 분량 요구사항 - 엄격 준수]
-1. 전체 분량: 반드시 공백을 제외하고 2,000자 이상의 풍부한 텍스트 분량으로 작성해 주세요.
-2. 내용 전개: 영상 제목의 핵심 키워드를 중심으로 깊이 있는 경제 상식, 최신 시장 트렌드, 전문적인 유용한 정보를 유기적으로 결합하여 서론-본론-결론 구조로 작성해야 합니다.
-3. 세부 구성: 본론은 최소 3개 이상의 구체적인 소제목(## 형식)으로 분류하고, 각 섹션마다 분석적이고 논리적인 설명 문단을 대폭 보강하여 정보의 두께를 늘려주세요.
-4. 신뢰성 확보: 독자가 이 글 하나만 읽어도 해당 경제 이슈의 맥락을 완벽히 이해할 수 있도록 친절하고 상세한 설명 데이터를 담아주세요.
+${LENGTH_RULES}
+
+[추가]
+- 제목 키워드를 자연스럽게 본문·소제목에 분산 배치 (키워드 나열 금지).
+- 경제 상식 + 실생활 비유 + 체크리스트 + FAQ를 반드시 포함.
+- 서식: "## 소제목" 사용. 초안 본문만 출력.
+`;
+}
+
+function draftPromptByUrl(url) {
+  return `
+유튜브 영상 URL: ${url}
+이 주제의 경제 이슈를 다루는 **초장문** 한국어 블로그 초안을 작성해 주세요.
+채널: 경제 냠냠 (시니어 친화).
+
+${LENGTH_RULES}
+서식: "## 소제목". 초안 본문만 출력.
 `;
 }
 
 const STYLE_SYSTEM = `
-당신은 '경제 냠냠' 블로그의 전담 에디터입니다.
-이 블로그는 50~70대 시니어 독자를 위해 경제 뉴스와 정보를 따뜻하고 친근하게 전달합니다.
+당신은 '경제 냠냠' 블로그의 **수석 에디터 겸 장문 칼럼니스트**입니다.
+독자: 50~70대 시니어. 목표: 구글 애드센스 승인 가능한 **풍성하고 유용한 장문 HTML 글**.
 
-글쓰기 원칙:
-1. 말투: "~입니다", "~습니다" 대신 "~이에요", "~해요" 같은 따뜻한 존댓말
-2. 어려운 경제 용어는 쉬운 말로 바꾸거나 괄호 안에 짧게 설명 추가
-3. 독자에게 직접 말 걸기 — "여러분", "우리 독자님들" 등 활용
-4. 비유나 일상 사례를 들어 친근하게 설명
-5. 문단 사이 적절한 여백
-6. 이모지를 적절히 활용해 생동감 추가
+[최우선 임무 — 분량]
+- 초안을 "짧게 다듬기"가 아니라 **내용을 크게 확장·보강**하는 것이 본업입니다.
+- 최종 본문은 공백 제외 **최소 4,000자**, 목표 **5,000~7,000자**.
+- 초안이 짧으면 설명·사례·FAQ·체크리스트·배경 맥락을 대폭 추가하세요.
+- 절대 요약본·축약본을 만들지 마세요. 문장을 줄이지 말고 늘리세요.
 
-[SEO 제목 규칙 — 반드시 준수]
-- 블로그 제목은 유튜브 영상 제목을 그대로 쓰지 말 것
-- 구글 검색 로봇이 잘 인지하도록, 독자들이 실제로 많이 검색할 법한 핵심 키워드(문어체)를 조합해 블로그 전용 제목을 새로 작성할 것
-- 예) 유튜브 제목 "지금 당장 팔아야 할까?" → 블로그 제목 "2024 하반기 주식 매도 타이밍 전략 총정리 | 개인투자자 필독"
-- 제목은 <h1> 태그로 감쌀 것
+[말투·톤]
+1. "~이에요", "~해요", "~거든요" 등 따뜻한 존댓말
+2. 어려운 경제 용어는 쉬운 말로 + 괄호 짧은 설명
+3. "여러분", "우리 독자님들"로 말 걸기
+4. 장바구니·통장·연금·월급 등 일상 비유
+5. 이모지는 소제목·강조에만 절제해 사용 (남발 금지)
+6. 특정 종목 매수 강요·허위 수익 보장 금지. 정보 제공·이해 도우미 역할
 
-[HTML 구조 규칙 — 반드시 준수]
-- 전체 출력은 HTML 형식으로만 할 것. 마크다운 사용 금지.
-- 주요 대단락(섹션)의 소제목은 반드시 <h2> 태그로 감쌀 것
-- 대단락 안의 세부 소제목은 반드시 <h3> 태그로 감쌀 것
-- 일반 본문 단락은 <p> 태그, 목록은 <ul>/<li> 태그를 사용할 것
-- <strong> 태그로 핵심 키워드를 강조할 것
+[필수 목차 — HTML로 모두 채울 것]
+1. <h1> SEO 제목
+2. 도입 문단 3~5개 <p>
+3. <h2> 배경·왜 지금 중요한가 (+ <p> 다수)
+4. <h2> 핵심 내용 1 (+ <h3> 2개 이상, 각 섹션 <p> 3개+)
+5. <h2> 핵심 내용 2 (+ 필요 시 <h3>)
+6. <h2> 우리 일상·노후·지갑에 미치는 영향
+7. <h2> 시니어 실전 체크리스트 (<ul><li> 5개 이상, 각 항목 설명 문장 포함 가능)
+8. <h2> 자주 묻는 질문 — FAQ (<h3> 질문 4개 이상, 각 답변 <p> 2개 이상)
+9. <h2> 한눈에 정리 & 앞으로 볼 포인트
+10. 마무리 인사 <p>
+
+[SEO 제목]
+- 유튜브 제목 복붙 금지. 검색 키워드형 블로그 전용 제목을 <h1>로.
+- 예: "금리 인하 시기 예금·적금 전략 총정리 | 시니어 자산관리 가이드"
+
+[HTML 규칙]
+- 출력은 HTML만. 마크다운·코드펜스(\`\`\`)·앞뒤 설명 금지.
+- 섹션: <h2>, 세부: <h3>, 본문: <p>, 목록: <ul>/<li>, 강조: <strong>
+- 유튜브 iframe/embed 넣지 말 것 (시스템이 별도 삽입)
+- 광고·스팸성 문구·무관한 외부 링크 나열 금지
 `;
 
 function stylePrompt(draft) {
-  return `다음 블로그 초안을 '경제 냠냠' 스타일로 다듬어주세요.
-HTML 형식으로 완성된 블로그 본문만 출력하세요 (유튜브 embed 코드 제외).
-반드시 SEO 블로그 전용 제목(<h1>)과 <h2>/<h3> 소제목 구조를 지켜주세요.
+  return `아래 초안을 '경제 냠냠' 스타일의 **완성 장문 블로그 HTML**로 다시 써 주세요.
+
+[절대 규칙]
+1. 짧게 다듬지 말고 **내용을 2배 가까이 풍성하게 확장**하세요.
+2. 공백 제외 본문 **최소 4,000자**, 목표 5,000~7,000자.
+3. FAQ 4문항 이상, 체크리스트 5항목 이상, h2 섹션 6개 이상 포함.
+4. 각 h2 아래 p 단락을 충분히 길게 (섹션당 최소 3단락).
+5. HTML만 출력. 유튜브 embed 제외.
 
 [초안]
 ${draft}`;
+}
+
+function expandPrompt(html, currentLen) {
+  return `아래 HTML 블로그 글은 공백 제외 약 ${currentLen}자로, 구글 애드센스 기준에 비해 **너무 짧습니다**.
+
+[임무]
+- 같은 주제·톤을 유지한 채 **대폭 확장**한 완성 HTML만 출력하세요.
+- 목표: 공백 제외 **5,000자 이상**.
+- 부족한 배경 설명, 일상 비유, 시니어 체크리스트, FAQ(4개+), 전망 문단을 추가하세요.
+- 기존 좋은 문장은 살리고, 요약·삭제는 금지.
+- 마크다운·코드펜스 없이 HTML만.
+
+[현재 글]
+${html}`;
 }
 
 // ───────────────────────────────────────────────
@@ -1449,52 +1545,92 @@ async function startGeneration() {
       const title = await fetchVideoTitle(videoUrl);
       if (title) {
         draft = await callGemini(draftPromptByTitle(title, videoUrl));
-        setStep(1, 'skip', '완료(제목 기반)', `"${title.slice(0, 30)}..." 제목 기반 생성`);
+        setStep(1, 'skip', '완료(제목 기반)', `"${title.slice(0, 30)}..." 장문 초안`);
       } else {
-        draft = await callGemini(
-          `유튜브 영상 URL: ${videoUrl}\n이 영상 주제의 경제 블로그 포스트 초안을 한국어로 작성해주세요.`
-        );
-        setStep(1, 'skip', '완료(URL 기반)', 'URL 기반으로 초안 생성');
+        draft = await callGemini(draftPromptByUrl(videoUrl));
+        setStep(1, 'skip', '완료(URL 기반)', 'URL 기반 장문 초안');
       }
     }
 
-    // ── 단계 2: Claude 스타일 다듬기 ────────────────
-    setStep(2, 'active', '다듬는 중...');
+    // 초안이 너무 짧으면 Gemini로 1회 더 보강
+    if (plainTextLen(draft) < 2000) {
+      setStep(1, 'active', '초안 분량 보강 중...', '짧은 초안 → 장문으로 재작성');
+      try {
+        draft = await callGemini(
+          expandPrompt(draft, plainTextLen(draft)),
+          STYLE_SYSTEM
+        );
+      } catch (e) {
+        console.warn('[draft expand]', e.message);
+      }
+    }
+
+    // ── 단계 2: Claude 장문 윤문·확장 ────────────────
+    setStep(2, 'active', '장문 작성 중...', 'Claude가 내용을 풍성하게 확장해요 (1~3분)');
 
     let refined;
     let step2Note = '';
+    let usedClaude = false;
 
     try {
       refined = await callClaude(STYLE_SYSTEM, stylePrompt(draft));
-      step2Note = getClaudeModel() + ' · CheapSub';
+      usedClaude = true;
+      step2Note = getClaudeModel() + ' · 장문 확장';
     } catch (claudeErr) {
-      // Claude/CheapSub 실패(CORS·잔액 등) → Gemini fallback
       console.warn('[Claude fallback]', claudeErr.message);
-      step2Note = 'Gemini 대체 처리 (' + (claudeErr.message || 'Claude 실패') + ')';
-      setStep(2, 'active', 'Gemini 대체 중...',
-              'Claude/CheapSub 실패 → Gemini로 스타일 다듬기');
+      step2Note = 'Gemini 대체 (' + (claudeErr.message || 'Claude 실패') + ')';
+      setStep(2, 'active', 'Gemini 장문 작성 중...',
+              'Claude 실패 → Gemini로 장문 윤문');
       refined = await callGemini(stylePrompt(draft), STYLE_SYSTEM);
     }
 
-    // 마크다운 코드 블록(```html, ```) 찌꺼기 자동 제거
+    // 마크다운 코드 블록 제거
     refined = refined.replace(/```html/gi, '').replace(/```/g, '').trim();
+
+    // 분량 미달 시 1회 자동 확장 (애드센스 대응)
+    let bodyLen = plainTextLen(refined);
+    if (bodyLen < ADSENSE_MIN_CHARS) {
+      setStep(2, 'active', '분량 자동 확장 중...',
+              `현재 ${bodyLen.toLocaleString()}자 → ${ADSENSE_MIN_CHARS.toLocaleString()}자+ 목표`);
+      try {
+        const expandUser = expandPrompt(refined, bodyLen);
+        if (usedClaude) {
+          refined = await callClaude(STYLE_SYSTEM, expandUser);
+        } else {
+          refined = await callGemini(expandUser, STYLE_SYSTEM);
+        }
+        refined = refined.replace(/```html/gi, '').replace(/```/g, '').trim();
+        bodyLen = plainTextLen(refined);
+        step2Note += ` · 확장 후 ${bodyLen.toLocaleString()}자`;
+      } catch (expErr) {
+        console.warn('[expand fail]', expErr.message);
+        step2Note += ` · 확장 실패(현재 ${bodyLen.toLocaleString()}자)`;
+      }
+    } else {
+      step2Note += ` · ${bodyLen.toLocaleString()}자`;
+    }
 
     // 임베드 삽입
     const embed      = buildEmbed(videoId);
     gGeneratedHtml   = refined + embed;
     gGeneratedTitle  = extractTitle(refined);
 
-    // 초안 자동 저장 (재로그인 시 증발 방지)
+    // 초안 자동 저장
     localStorage.setItem('ec_draft_html', gGeneratedHtml);
     localStorage.setItem('ec_draft_title', gGeneratedTitle);
 
+    const lenNote = plainTextLen(refined);
     setStep(2, 'done', '완료', step2Note);
+    if (lenNote < ADSENSE_MIN_CHARS) {
+      showToast(`⚠️ 본문 약 ${lenNote.toLocaleString()}자 — 가능하면 한 번 더 생성하거나 수동 보강 권장`);
+    } else {
+      showToast(`✅ 장문 완성! 본문 약 ${lenNote.toLocaleString()}자 (공백 제외)`);
+    }
 
-    // 미리보기 표시
+    // 미리보기
     document.getElementById('preview-content').innerHTML = gGeneratedHtml;
     document.getElementById('preview-wrap').classList.add('show');
 
-    // 단계 3은 버튼 클릭 시 실행
     setStep(3, '', '대기', 'Blogger 포스팅 버튼을 눌러주세요');
 
   } catch (err) {
