@@ -680,8 +680,13 @@ body {
           onclick="copyOauthUrl(this)"
           title="클릭하면 복사">—</code>
       </div>
-      <div style="color:var(--text-3);font-size:11px;margin-top:8px;">
-        💡 위 주소를 클릭하면 복사돼요. Google Cloud Console에 그대로 붙여넣기 하세요.
+      <div style="color:var(--text-3);font-size:11px;margin-top:8px;line-height:1.7;">
+        💡 위 주소를 클릭하면 복사돼요.<br>
+        <strong>redirect_uri_mismatch</strong> 가 뜨면 Google Cloud Console →
+        API 및 서비스 → 사용자 인증 정보 → 이 OAuth 클라이언트 →
+        <strong>승인된 자바스크립트 원본</strong> / <strong>승인된 리디렉션 URI</strong> 에
+        위 두 값을 <u>글자 하나 틀리지 않게</u> 추가한 뒤 저장하세요.
+        (저장 후 1~2분 기다렸다가 다시 로그인)
       </div>
     </div>
     <div class="field">
@@ -1958,10 +1963,24 @@ function selectYoutubeVideo(vid) {
 
 // ───────────────────────────────────────────────
 // Google OAuth (Implicit Grant Flow)
+// redirect_uri 는 반드시 고정값 — 주소창 끝 / · index.html 차이로
+// Google Console 과 어긋나면 redirect_uri_mismatch 발생
 // ───────────────────────────────────────────────
+function getOAuthOrigin() {
+  if (window.location.protocol === 'file:') return 'http://localhost:8000';
+  // 포트 포함 origin 고정 (예: http://localhost:8000)
+  return window.location.origin;
+}
+
+function getOAuthRedirectUri() {
+  // 항상 origin + '/'  (예: http://localhost:8000/)
+  // index.html 경로·쿼리·해시 절대 포함하지 않음
+  return getOAuthOrigin().replace(/\/+$/, '') + '/';
+}
+
 function startGoogleAuth() {
   if (window.location.protocol === 'file:') {
-    alert('⚠️ Google 로그인은 file:// 에서 작동하지 않아요.\n\n폴더에서 server.py 를 실행한 뒤\nhttp://localhost:8000/auto_blog.html 로 다시 열어주세요.');
+    alert('⚠️ Google 로그인은 file:// 에서 작동하지 않아요.\n\n「블로그_서버_실행.bat」실행 후\nhttp://localhost:8000/ 으로 열어주세요.');
     return;
   }
 
@@ -1971,7 +1990,7 @@ function startGoogleAuth() {
     return;
   }
 
-  const redirectUri = window.location.href.split('?')[0].split('#')[0];
+  const redirectUri = getOAuthRedirectUri();
   const params = new URLSearchParams({
     client_id:     clientId,
     redirect_uri:  redirectUri,
@@ -1980,6 +1999,8 @@ function startGoogleAuth() {
     prompt:        'select_account',
   });
 
+  // 디버그용: Console 에 실제 전송 URI 표시
+  console.log('[OAuth] redirect_uri =', redirectUri);
   window.location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params.toString();
 }
 
@@ -2056,13 +2077,11 @@ window.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('file-warn-banner').style.display = 'block';
   }
 
-  // OAuth URL 표시 (현재 페이지 기준)
-  const origin   = window.location.origin;
-  const fullUrl  = window.location.href.split('?')[0].split('#')[0];
+  // OAuth URL 표시 — 로그인 시 실제 전송값과 동일
   const originEl  = document.getElementById('oauth-origin');
   const redirectEl = document.getElementById('oauth-redirect');
-  if (originEl)  originEl.textContent  = (window.location.protocol === 'file:') ? 'http://localhost:8000' : origin;
-  if (redirectEl) redirectEl.textContent = (window.location.protocol === 'file:') ? 'http://localhost:8000/' : fullUrl;
+  if (originEl)  originEl.textContent  = getOAuthOrigin();
+  if (redirectEl) redirectEl.textContent = getOAuthRedirectUri();
 });
 </script>
 </body>
