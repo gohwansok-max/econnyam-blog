@@ -109,10 +109,17 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
                     return
 
                 target = endpoint + "/messages"
+                # Cloudflare(칩섭)가 Python 기본 UA 를 막는 경우(1010) 대비
                 req_headers = {
                     "Content-Type": "application/json",
                     "x-api-key": api_key,
                     "anthropic-version": "2023-06-01",
+                    "User-Agent": (
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                        "AppleWebKit/537.36 (KHTML, like Gecko) "
+                        "Chrome/122.0.0.0 Safari/537.36 EconnyamBlogProxy/1.0"
+                    ),
+                    "Accept": "application/json",
                 }
                 if api_key.startswith("csk_"):
                     req_headers["Authorization"] = "Bearer " + api_key
